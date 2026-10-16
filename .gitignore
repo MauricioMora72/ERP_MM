@@ -1,0 +1,12 @@
+node_modules/
+.next/
+dist/
+coverage/
+.env
+.env.*
+!.env.example
+*.pem
+*-key.json
+service-account*.json
+credenciales/
+.DS_Store
