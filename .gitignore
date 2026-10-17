@@ -10,3 +10,4 @@ coverage/
 service-account*.json
 credenciales/
 .DS_Store
+*.tsbuildinfo

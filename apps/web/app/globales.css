@@ -1,0 +1,101 @@
+/* Estilo sobrio: blanco y negro, líneas finas, pensado para trabajo de oficina. */
+:root {
+  --tinta: #1a1a1a;
+  --tenue: #6b6b6b;
+  --linea: #d4d4d4;
+  --fondo: #ffffff;
+  --fondo-suave: #f5f5f5;
+  --acento: #1a1a1a;
+  --error: #a40000;
+  --exito: #1f5f2a;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  color: var(--tinta);
+  background: var(--fondo);
+}
+a { color: inherit; }
+h1 { font-size: 20px; font-weight: 600; margin: 0 0 16px; }
+h2 { font-size: 16px; font-weight: 600; margin: 24px 0 12px; }
+
+.cargando { padding: 32px; color: var(--tenue); }
+.tenue { color: var(--tenue); }
+
+.marco { display: grid; grid-template-columns: 220px 1fr; grid-template-rows: 52px 1fr; min-height: 100vh; }
+.cabecera {
+  grid-column: 1 / -1; display: flex; align-items: center; gap: 20px;
+  padding: 0 20px; border-bottom: 1px solid var(--linea);
+}
+.marca { font-weight: 600; text-decoration: none; margin-right: auto; }
+.selector-compania { display: flex; align-items: center; gap: 8px; color: var(--tenue); }
+.usuario { color: var(--tenue); }
+.menu { border-right: 1px solid var(--linea); padding: 12px 0; overflow-y: auto; }
+.menu section { margin-bottom: 12px; }
+.menu h3 {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--tenue); margin: 8px 20px 4px; font-weight: 600;
+}
+.menu a { display: block; padding: 6px 20px; text-decoration: none; }
+.menu a:hover { background: var(--fondo-suave); }
+.menu a.activo { font-weight: 600; border-left: 2px solid var(--acento); padding-left: 18px; }
+.contenido { padding: 24px 28px; max-width: 1200px; }
+
+.barra { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.barra h1 { margin: 0 auto 0 0; }
+
+input[type='text'], input[type='date'], input[type='email'], input[type='password'], select {
+  font: inherit; padding: 6px 8px; border: 1px solid var(--linea); border-radius: 3px;
+  background: var(--fondo); color: var(--tinta); min-width: 0;
+}
+input:focus, select:focus { outline: 1px solid var(--tinta); border-color: var(--tinta); }
+input:disabled, select:disabled { background: var(--fondo-suave); color: var(--tenue); }
+
+button, .boton {
+  font: inherit; padding: 6px 14px; border: 1px solid var(--tinta); border-radius: 3px;
+  background: var(--tinta); color: #fff; cursor: pointer; text-decoration: none; display: inline-block;
+}
+button.secundario, .boton.secundario { background: var(--fondo); color: var(--tinta); }
+button:disabled { opacity: 0.5; cursor: default; }
+button.enlace { background: none; border: none; color: var(--tinta); padding: 0; text-decoration: underline; }
+
+table.lista { width: 100%; border-collapse: collapse; }
+table.lista th, table.lista td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--linea); }
+table.lista th { font-weight: 600; font-size: 12px; color: var(--tenue); border-bottom: 1px solid var(--tinta); }
+table.lista tbody tr { cursor: pointer; }
+table.lista tbody tr:hover { background: var(--fondo-suave); }
+.paginacion { display: flex; gap: 12px; align-items: center; margin-top: 12px; color: var(--tenue); }
+
+.formulario { display: grid; grid-template-columns: 240px minmax(0, 420px); gap: 10px 16px; align-items: center; }
+.formulario label { color: var(--tenue); }
+.formulario .ayuda { grid-column: 2; font-size: 12px; color: var(--tenue); margin-top: -6px; }
+.formulario .error-campo { grid-column: 2; font-size: 12px; color: var(--error); margin-top: -6px; }
+.acciones { display: flex; gap: 10px; margin-top: 20px; }
+.aviso { padding: 10px 12px; border: 1px solid var(--linea); margin-bottom: 16px; }
+.aviso.error { border-color: var(--error); color: var(--error); }
+.aviso.exito { border-color: var(--exito); color: var(--exito); }
+.auditoria { margin-top: 24px; font-size: 12px; color: var(--tenue); }
+
+.tarjeta-ingreso { max-width: 420px; margin: 10vh auto; padding: 28px; border: 1px solid var(--linea); }
+.tarjeta-ingreso form { display: grid; gap: 12px; }
+.tarjeta-ingreso label { display: grid; gap: 4px; color: var(--tenue); }
+.tarjeta-ingreso.ancha { max-width: 560px; }
+
+.inicio-modulos { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+.inicio-modulos section { border: 1px solid var(--linea); padding: 14px 16px; }
+.inicio-modulos h2 { margin-top: 0; }
+.inicio-modulos a { display: block; padding: 3px 0; }
+
+@media (max-width: 760px) {
+  .marco { grid-template-columns: 1fr; grid-template-rows: auto auto 1fr; }
+  .cabecera { flex-wrap: wrap; padding: 10px 16px; gap: 10px; }
+  .menu { border-right: none; border-bottom: 1px solid var(--linea); }
+  .contenido { padding: 16px; }
+  .formulario { grid-template-columns: 1fr; }
+  .formulario .ayuda, .formulario .error-campo { grid-column: 1; }
+  table.lista { display: block; overflow-x: auto; }
+}
+.formulario input[type='checkbox'] { justify-self: start; width: 16px; height: 16px; }
