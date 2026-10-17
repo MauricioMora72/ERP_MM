@@ -2,7 +2,8 @@
 
 import { cabeceraAutorizacion, leerLocal } from './auth';
 
-export const URL_API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+// Vacío: se llama al mismo origen y Next.js reenvía /api a la API (ver next.config.mjs).
+export const URL_API = process.env.NEXT_PUBLIC_API_URL ?? '';
 
 export class ErrorApi extends Error {
   constructor(

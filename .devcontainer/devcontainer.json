@@ -1,0 +1,18 @@
+{
+  "name": "ERP MM",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "app",
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  "forwardPorts": [3000, 4000],
+  "portsAttributes": {
+    "3000": { "label": "ERP web", "onAutoForward": "openBrowser" },
+    "4000": { "label": "API" }
+  },
+  "postCreateCommand": "sudo corepack enable && pnpm install && (test -f .env || cp .env.example .env) && pnpm db:migrar",
+  "postAttachCommand": "echo 'Para iniciar el ERP escriba: pnpm dev'",
+  "customizations": {
+    "vscode": {
+      "settings": { "terminal.integrated.defaultProfile.linux": "bash" }
+    }
+  }
+}

@@ -12,7 +12,17 @@ ERP web multiempresa para empresas de servicios en Ecuador. Fase actual: 0, fund
 - Kardex protegido: la aplicación no puede modificarlo ni borrarlo.
 - Auditoría de quién creó y modificó cada registro.
 
-## Requisitos en su computadora
+## Opción sin instalar nada: GitHub Codespaces
+
+1. En github.com abra el repositorio ERP_MM.
+2. Pulse el botón verde Code, pestaña Codespaces, y luego Create codespace on main.
+3. Espere a que termine la preparación (la primera vez tarda unos minutos: instala todo y crea la base).
+4. En la terminal de abajo escriba `pnpm dev`.
+5. Cuando aparezca el aviso del puerto 3000, pulse Open in Browser.
+
+Al terminar, cierre la pestaña. El codespace se detiene solo por inactividad y conserva sus datos.
+
+## Requisitos para correrlo en su computadora
 
 - Node.js 22 o superior.
 - pnpm: se activa con `corepack enable`.

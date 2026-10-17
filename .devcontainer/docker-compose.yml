@@ -1,0 +1,19 @@
+services:
+  app:
+    image: mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm
+    volumes:
+      - ../..:/workspaces:cached
+    command: sleep infinity
+    # Comparte la red con la base: dentro del entorno, la base responde en localhost:5432.
+    network_mode: service:db
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: erp_admin
+      POSTGRES_PASSWORD: erp_admin_local
+      POSTGRES_DB: erp
+    volumes:
+      - erp_datos_codespace:/var/lib/postgresql/data
+volumes:
+  erp_datos_codespace:
