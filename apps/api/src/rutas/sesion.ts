@@ -6,6 +6,7 @@ import type { Servicios } from '../app.js';
 import { enSesion, obtenerSesion, resolverUsuario } from '../contexto.js';
 import { ErrorNegocio } from '../errores.js';
 import { cargarSemillas } from '../semillas.js';
+import { cargarSemillasCompania } from '../semillas-compania.js';
 
 export async function rutasSesion(app: FastifyInstance, servicios: Servicios): Promise<void> {
   /** Datos de la sesión: usuario, suscriptor, compañías visibles y permisos. */
@@ -65,8 +66,9 @@ export async function rutasSesion(app: FastifyInstance, servicios: Servicios): P
         insert into erp.mae_companias (codigo, direccion_id, moneda_id)
         values (${datos.compania.codigo}, ${direccion.rows[0]!.id}, ${monedaUsdId}) returning id`.execute(trx);
       const companiaId = compania.rows[0]!.id;
-      await sql`insert into erp.mae_unidades_negocio (compania_id, codigo, descripcion, tipo)
-                values (${companiaId}, ${`${datos.compania.codigo}-01`}, 'Matriz', 'SUCURSAL')`.execute(trx);
+      const unidad = await sql<{ id: string }>`insert into erp.mae_unidades_negocio (compania_id, codigo, descripcion, tipo)
+                values (${companiaId}, ${`${datos.compania.codigo}-01`}, 'Matriz', 'SUCURSAL') returning id`.execute(trx);
+      await cargarSemillasCompania(trx, companiaId, unidad.rows[0]!.id);
       const rol = await sql<{ id: string }>`
         insert into erp.sis_roles (codigo, descripcion) values ('ADMIN', 'Administrador con acceso total')
         returning id`.execute(trx);

@@ -37,6 +37,9 @@ function esquemaCampo(campo: Campo): z.ZodTypeAny {
     case 'fecha':
       base = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, `${campo.etiqueta} debe tener el formato AAAA-MM-DD`);
       break;
+    case 'fechaHora':
+      base = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/, `${campo.etiqueta} debe tener fecha y hora`);
+      break;
     case 'booleano':
       base = z.boolean();
       break;

@@ -1,10 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
-import { Fragment, useEffect, useState, type FormEvent } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { Fragment, Suspense, useEffect, useState, type FormEvent } from 'react';
 import { buscarEntidad } from '@erp/shared';
 import { Entrada, type Valor } from '@/componentes/Campos';
+import { ListaHijos } from '@/componentes/ListaHijos';
 import { Marco } from '@/componentes/Marco';
 import { api, ErrorApi } from '@/lib/api';
 import { invalidarOpciones } from '@/lib/opciones';
@@ -15,6 +16,7 @@ function Ficha() {
   const entidad = buscarEntidad(nombre);
   const esNuevo = id === 'nuevo';
   const router = useRouter();
+  const consulta = useSearchParams();
   const { puede } = useSesion();
   const [valores, setValores] = useState<Record<string, Valor>>({});
   const [original, setOriginal] = useState<Record<string, unknown> | null>(null);
@@ -28,6 +30,11 @@ function Ficha() {
     if (esNuevo) {
       const iniciales: Record<string, Valor> = {};
       for (const c of entidad.campos) if (c.defecto !== undefined) iniciales[c.nombre] = c.defecto;
+      // Valores que vienen de la ficha del padre, por ejemplo ?plantilla_id=...
+      for (const c of entidad.campos) {
+        const v = consulta.get(c.nombre);
+        if (v) iniciales[c.nombre] = v;
+      }
       setValores(iniciales);
       return;
     }
@@ -37,10 +44,11 @@ function Ficha() {
         setValores(Object.fromEntries(entidad.campos.map((c) => [c.nombre, fila[c.nombre] as Valor])));
       })
       .catch((e: unknown) => setError(e instanceof ErrorApi ? e.message : 'Ocurrió un error.'));
-  }, [entidad, id, esNuevo]);
+  }, [entidad, id, esNuevo, consulta]);
 
   if (!entidad) return <p className="aviso error">Esta pantalla no existe.</p>;
-  const editable = esNuevo ? puede(entidad.nombre, 'CREAR') : puede(entidad.nombre, 'MODIFICAR');
+  const editable = !entidad.soloLectura && (esNuevo ? puede(entidad.nombre, 'CREAR') : puede(entidad.nombre, 'MODIFICAR'));
+  const volver = consulta.get('volver');
 
   async function guardar(e: FormEvent) {
     e.preventDefault();
@@ -64,7 +72,7 @@ function Ficha() {
       );
       invalidarOpciones(entidad.nombre);
       if (esNuevo) {
-        router.replace(`/${entidad.nombre}/${String(fila.id)}`);
+        router.replace(volver ?? `/${entidad.nombre}/${String(fila.id)}`);
       } else {
         setOriginal(fila);
         setExito('Cambios guardados.');
@@ -98,8 +106,8 @@ function Ficha() {
         <h1>
           {esNuevo ? `Nuevo: ${entidad.tituloSingular}` : entidad.tituloSingular}
         </h1>
-        <Link className="boton secundario" href={`/${entidad.nombre}`}>
-          Volver a la lista
+        <Link className="boton secundario" href={volver ?? `/${entidad.nombre}`}>
+          {volver ? 'Volver' : 'Volver a la lista'}
         </Link>
       </div>
       {error && <p className="aviso error">{error}</p>}
@@ -129,13 +137,17 @@ function Ficha() {
               {guardando ? 'Guardando…' : 'Guardar'}
             </button>
           )}
-          {!esNuevo && puede(entidad.nombre, 'ANULAR') && (
+          {!esNuevo && !entidad.soloLectura && puede(entidad.nombre, 'ANULAR') && (
             <button type="button" className="secundario" onClick={anular}>
               {entidad.inactivable ? 'Inactivar' : 'Borrar'}
             </button>
           )}
         </div>
       </form>
+      {!esNuevo &&
+        entidad.hijos?.map((h) => (
+          <ListaHijos key={h.entidad} entidad={h.entidad} campo={h.campo} valor={id} titulo={h.titulo} volver={`/${entidad.nombre}/${id}`} />
+        ))}
       {original && (
         <p className="auditoria">
           Creado por {String(original.creado_por)} el {String(original.creado_en).slice(0, 19).replace('T', ' ')}
@@ -151,7 +163,9 @@ function Ficha() {
 export default function Pagina() {
   return (
     <Marco>
-      <Ficha />
+      <Suspense fallback={<p className="cargando">Cargando…</p>}>
+        <Ficha />
+      </Suspense>
     </Marco>
   );
 }

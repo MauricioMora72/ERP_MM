@@ -53,7 +53,7 @@ function Lista() {
             }}
           />
         )}
-        {puede(entidad.nombre, 'CREAR') && (
+        {!entidad.soloLectura && puede(entidad.nombre, 'CREAR') && (
           <Link className="boton" href={`/${entidad.nombre}/nuevo`}>
             Nuevo
           </Link>

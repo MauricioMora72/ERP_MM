@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
-import { ENTIDADES, MODULOS_MENU } from '@erp/shared';
+import { ENLACES_MENU, ENTIDADES, MODULOS_MENU } from '@erp/shared';
 import { salir } from '@/lib/auth';
 import { ProveedorSesion, useSesion } from '@/lib/sesion';
 
@@ -43,11 +43,17 @@ function Contenido({ children }: { children: ReactNode }) {
       </header>
       <nav className="menu">
         {MODULOS_MENU.map((modulo) => {
-          const entidades = ENTIDADES.filter((e) => e.modulo === modulo && puede(e.nombre, 'VER'));
-          if (!entidades.length) return null;
+          const entidades = ENTIDADES.filter((e) => e.modulo === modulo && !e.oculta && puede(e.nombre, 'VER'));
+          const enlaces = ENLACES_MENU.filter((l) => l.modulo === modulo && puede(l.recurso, 'VER'));
+          if (!entidades.length && !enlaces.length) return null;
           return (
             <section key={modulo}>
               <h3>{modulo}</h3>
+              {enlaces.map((l) => (
+                <Link key={l.ruta} href={l.ruta} className={ruta.startsWith(l.ruta) ? 'activo' : ''}>
+                  {l.titulo}
+                </Link>
+              ))}
               {entidades.map((e) => (
                 <Link key={e.nombre} href={`/${e.nombre}`} className={ruta.startsWith(`/${e.nombre}`) ? 'activo' : ''}>
                   {e.titulo}

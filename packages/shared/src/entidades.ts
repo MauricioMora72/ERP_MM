@@ -1,3 +1,4 @@
+import { ENTIDADES_FASE1 } from './entidades-fase1';
 /**
  * Definición de las entidades de la fase 0.
  * Con estos metadatos la API arma sus rutas y validaciones, y la interfaz arma listas y formularios.
@@ -5,6 +6,7 @@
  */
 
 export type TipoCampo =
+  | 'fechaHora'
   | 'texto'
   | 'entero'
   | 'decimal'
@@ -44,7 +46,7 @@ export interface Entidad {
   tabla: string;
   titulo: string;
   tituloSingular: string;
-  modulo: 'Sistema' | 'Catálogos' | 'Maestros' | 'Contabilidad';
+  modulo: Modulo;
   campos: Campo[];
   /** Columnas que se muestran en la lista. */
   listado: string[];
@@ -55,11 +57,29 @@ export interface Entidad {
   orden: string;
   /** La tabla tiene columna activo: se inactiva en vez de borrar. */
   inactivable: boolean;
+  /** Solo consulta: lo generan los procesos del sistema (asientos, kardex, facturas). */
+  soloLectura?: boolean;
+  /** Orden descendente en la lista. */
+  ordenDescendente?: boolean;
+  /** Registros dependientes que se muestran y agregan desde la ficha. */
+  hijos?: { entidad: string; campo: string; titulo: string }[];
+  /** No aparece en el menú (se llega desde la ficha del padre). */
+  oculta?: boolean;
 }
+
+export type Modulo =
+  | 'Servicios'
+  | 'Maestros'
+  | 'Ventas'
+  | 'Inventario'
+  | 'Contabilidad'
+  | 'Localización'
+  | 'Catálogos'
+  | 'Sistema';
 
 const activo: Campo = { nombre: 'activo', etiqueta: 'Activo', tipo: 'booleano', defecto: true };
 
-export const ENTIDADES: Entidad[] = [
+const ENTIDADES_BASE: Entidad[] = [
   {
     nombre: 'monedas',
     tabla: 'mae_monedas',
@@ -610,8 +630,37 @@ export const ENTIDADES: Entidad[] = [
   },
 ];
 
+export const ENTIDADES: Entidad[] = [...ENTIDADES_BASE, ...ENTIDADES_FASE1];
+
+for (const e of ENTIDADES) {
+  if (e.nombre === 'direcciones') e.hijos = [
+    { entidad: 'ubicaciones', campo: 'direccion_id', titulo: 'Ubicaciones' },
+    { entidad: 'contactos', campo: 'direccion_id', titulo: 'Contactos' },
+  ];
+  if (e.nombre === 'tipos-documento') e.hijos = [{ entidad: 'flujos-estado', campo: 'tipo_documento_id', titulo: 'Flujo de estados' }];
+  if (e.nombre === 'catalogos') e.hijos = [{ entidad: 'valores-catalogo', campo: 'catalogo_id', titulo: 'Valores' }];
+  if (e.nombre === 'roles') e.hijos = [{ entidad: 'permisos', campo: 'rol_id', titulo: 'Permisos' }];
+  if (e.nombre === 'flujos-estado') {
+    e.campos.push({
+      nombre: 'fase', etiqueta: 'Fase', tipo: 'opcion',
+      opciones: ['REGISTRADA', 'PROGRAMADA', 'EJECUCION', 'TERMINADA', 'REVISADA', 'FACTURADA', 'CERRADA', 'CANCELADA'].map((v) => ({ valor: v, etiqueta: v.charAt(0) + v.slice(1).toLowerCase() })),
+      ayuda: 'Significado del estado para el sistema; el número lo define usted',
+    });
+    e.listado.push('fase');
+  }
+}
+
 export function buscarEntidad(nombre: string): Entidad | undefined {
   return ENTIDADES.find((e) => e.nombre === nombre);
 }
 
-export const MODULOS_MENU: Entidad['modulo'][] = ['Maestros', 'Catálogos', 'Contabilidad', 'Sistema'];
+export const MODULOS_MENU: Modulo[] = ['Servicios', 'Maestros', 'Ventas', 'Inventario', 'Contabilidad', 'Localización', 'Catálogos', 'Sistema'];
+
+/** Pantallas propias (no genéricas) que aparecen en el menú. */
+export const ENLACES_MENU: { modulo: Modulo; titulo: string; ruta: string; recurso: string }[] = [
+  { modulo: 'Servicios', titulo: 'Órdenes de servicio', ruta: '/servicio/ordenes', recurso: 'srv-ordenes' },
+  { modulo: 'Servicios', titulo: 'Mesa de ayuda', ruta: '/servicio/casos', recurso: 'srv-casos' },
+  { modulo: 'Servicios', titulo: 'Reclamos de garantía', ruta: '/servicio/reclamos', recurso: 'srv-reclamos' },
+  { modulo: 'Servicios', titulo: 'Configurar industria', ruta: '/servicio/industria', recurso: 'srv-config' },
+  { modulo: 'Inventario', titulo: 'Ajustes y existencias', ruta: '/inventario/ajustes', recurso: 'inventario' },
+];

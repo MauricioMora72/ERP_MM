@@ -1,6 +1,21 @@
 # ERP propio
 
-ERP web multiempresa para empresas de servicios en Ecuador. Fase actual: 0, fundamentos.
+ERP web multiempresa para empresas de servicios en Ecuador. Fase actual: 1, gestión de servicios.
+
+## Qué incluye el módulo de gestión de servicios (fase 1)
+
+Especificación completa en docs/especificaciones/srv-gestion-de-servicios.md.
+
+- Configurar industria: plantillas para clínica odontológica, clínica u hospital, mantenimiento de equipos y taller automotriz. Crean tipos de orden con su flujo, campos propios, perfiles con tarifas, artículos y temparios. Se pueden aplicar varias y luego ajustar.
+- Órdenes de servicio con tempario copiado, actividades, horas por recurso (rango o total), consumo de materiales con kardex y su reverso, servicios de terceros, prefactura y factura con IVA, cuenta por cobrar y asientos. Una orden en garantía, contrato o uso interno se liquida sin factura y su costo va a la cuenta que corresponde.
+- Cobertura automática: garantía del objeto, luego contrato vigente, luego interno o facturable. Cambiarla exige permiso y motivo.
+- Mesa de ayuda: casos con prioridad, canal, compromiso de respuesta, bitácora, solución obligatoria y generación de la orden desde el caso.
+- Reclamos de garantía al fabricante desde órdenes en garantía liquidadas; al aprobarse quedan como cuenta por cobrar al proveedor.
+- Contratos de servicio, mantenimientos preventivos, agenda de recursos, reglas de garantía.
+- Inventario: ajustes de entrada y salida con costo promedio y consulta de existencias.
+- Datos clínicos marcados como sensibles: solo los ve quien tiene el permiso srv-datos-sensibles.
+
+Para probarlo: dé de alta una empresa, entre a Servicios, Configurar industria, aplique una plantilla, registre un cliente, una lista de precios y un recurso, cargue existencias en Inventario, Ajustes y existencias, y cree una orden en Servicios, Órdenes de servicio.
 
 ## Qué incluye la fase 0
 

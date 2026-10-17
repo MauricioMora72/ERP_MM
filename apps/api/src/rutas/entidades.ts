@@ -4,6 +4,7 @@ import { buscarEntidad, erroresPorCampo, esquemaAlta, esquemaCambio, ENTIDADES, 
 import type { Servicios } from '../app.js';
 import { enSesion, exigirPermiso, obtenerSesion, type Sesion } from '../contexto.js';
 import { ErrorNegocio } from '../errores.js';
+import { calcularGarantiaObjeto } from '../servicios/garantias.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -20,6 +21,33 @@ function entidadDe(nombre: string): Entidad {
   const entidad = buscarEntidad(nombre);
   if (!entidad) throw new ErrorNegocio(404, `No existe la entidad ${nombre}.`);
   return entidad;
+}
+
+function editable(entidad: Entidad): Entidad {
+  if (entidad.soloLectura) throw new ErrorNegocio(405, `${entidad.titulo} se generan desde sus procesos y no se editan a mano.`);
+  return entidad;
+}
+
+/** Reglas propias de algunas entidades, antes y después de guardar. */
+async function antesDeGuardar(trx: Trx, entidad: Entidad, datos: Record<string, unknown>, id?: string): Promise<void> {
+  if (entidad.nombre === 'agenda') {
+    let actual: Record<string, unknown> = {};
+    if (id) actual = (await sql<Record<string, unknown>>`select recurso_id, inicio, fin, estado from erp.srv_agenda where id = ${id}`.execute(trx)).rows[0] ?? {};
+    const f = { ...actual, ...datos };
+    if (f.estado === 'CANCELADA') return;
+    if (f.inicio && f.fin && new Date(String(f.fin)) <= new Date(String(f.inicio))) {
+      throw new ErrorNegocio(400, 'Revise los datos ingresados.', { fin: 'El fin debe ser posterior al inicio' });
+    }
+    const choque = await sql`
+      select 1 from erp.srv_agenda where recurso_id = ${f.recurso_id as string} and estado <> 'CANCELADA'
+        and id is distinct from ${id ?? null}::uuid
+        and tstzrange(inicio, fin) && tstzrange(${f.inicio as string}::timestamptz, ${f.fin as string}::timestamptz)`.execute(trx);
+    if (choque.rows.length) throw new ErrorNegocio(409, 'El recurso ya tiene una reserva en ese horario.');
+  }
+}
+
+async function despuesDeGuardar(trx: Trx, entidad: Entidad, fila: Record<string, unknown>): Promise<void> {
+  if (entidad.nombre === 'objetos') await calcularGarantiaObjeto(trx, String(fila.id));
 }
 
 /**
@@ -74,7 +102,7 @@ export async function listar(
   const donde = sql.join(condiciones, sql` and `);
   const filas = await sql<Record<string, unknown>>`
     select ${columnas(entidad)} from ${tabla(entidad)} where ${donde}
-    order by ${sql.ref(entidad.orden)}, id limit ${limite} offset ${(pagina - 1) * limite}`.execute(trx);
+    order by ${sql.ref(entidad.orden)} ${entidad.ordenDescendente ? sql`desc` : sql`asc`}, id limit ${limite} offset ${(pagina - 1) * limite}`.execute(trx);
   const total = await sql<{ total: string }>`select count(*) as total from ${tabla(entidad)} where ${donde}`.execute(trx);
   return { filas: filas.rows, total: Number(total.rows[0]?.total ?? 0), pagina, limite };
 }
@@ -92,11 +120,13 @@ export async function crear(trx: Trx, entidad: Entidad, cuerpo: unknown) {
     const r = await sql<{ n: string }>`select coalesce(max(numero), 0) + 1 as n from erp.mae_direcciones`.execute(trx);
     datos.numero = r.rows[0]?.n;
   }
+  await antesDeGuardar(trx, entidad, datos);
   const nombres = Object.keys(datos);
   const fila = await sql<Record<string, unknown>>`
     insert into ${tabla(entidad)} (${sql.join(nombres.map((n) => sql.ref(n)))})
     values (${sql.join(nombres.map((n) => sql`${datos[n]}`))})
     returning ${columnas(entidad)}`.execute(trx);
+  await despuesDeGuardar(trx, entidad, fila.rows[0]!);
   return fila.rows[0];
 }
 
@@ -108,10 +138,12 @@ export async function modificar(trx: Trx, entidad: Entidad, id: string, cuerpo: 
   const datos = Object.fromEntries(Object.entries(resultado.data).filter(([, v]) => v !== undefined));
   if (Object.keys(datos).length === 0) throw new ErrorNegocio(400, 'No hay cambios que guardar.');
   await validarRelaciones(trx, entidad, datos);
+  await antesDeGuardar(trx, entidad, datos, id);
   const asignaciones = sql.join(Object.entries(datos).map(([n, v]) => sql`${sql.ref(n)} = ${v}`));
   const fila = await sql<Record<string, unknown>>`
     update ${tabla(entidad)} set ${asignaciones} where id = ${id} returning ${columnas(entidad)}`.execute(trx);
   if (!fila.rows[0]) throw new ErrorNegocio(404, 'El registro no existe.');
+  await despuesDeGuardar(trx, entidad, fila.rows[0]);
   return fila.rows[0];
 }
 
@@ -153,7 +185,7 @@ export async function rutasEntidades(app: FastifyInstance, servicios: Servicios)
   });
 
   app.post<{ Params: { entidad: string } }>('/api/e/:entidad', async (request, reply) => {
-    const entidad = entidadDe(request.params.entidad);
+    const entidad = editable(entidadDe(request.params.entidad));
     const fila = await conSesion(servicios, request, async (trx, sesion) => {
       await exigirPermiso(trx, sesion, entidad.nombre, 'CREAR');
       return crear(trx, entidad, request.body);
@@ -163,7 +195,7 @@ export async function rutasEntidades(app: FastifyInstance, servicios: Servicios)
   });
 
   app.put<{ Params: { entidad: string; id: string } }>('/api/e/:entidad/:id', async (request) => {
-    const entidad = entidadDe(request.params.entidad);
+    const entidad = editable(entidadDe(request.params.entidad));
     if (!UUID.test(request.params.id)) throw new ErrorNegocio(404, 'El registro no existe.');
     return conSesion(servicios, request, async (trx, sesion) => {
       await exigirPermiso(trx, sesion, entidad.nombre, 'MODIFICAR');
@@ -173,7 +205,7 @@ export async function rutasEntidades(app: FastifyInstance, servicios: Servicios)
 
   /** Inactiva si la tabla tiene columna activo; si no, borra (solo si nada lo referencia). */
   app.post<{ Params: { entidad: string; id: string } }>('/api/e/:entidad/:id/anular', async (request) => {
-    const entidad = entidadDe(request.params.entidad);
+    const entidad = editable(entidadDe(request.params.entidad));
     if (!UUID.test(request.params.id)) throw new ErrorNegocio(404, 'El registro no existe.');
     return conSesion(servicios, request, async (trx, sesion) => {
       await exigirPermiso(trx, sesion, entidad.nombre, 'ANULAR');

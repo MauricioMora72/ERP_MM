@@ -1,6 +1,6 @@
 # Especificación funcional: Gestión de servicios
 
-Estado: borrador para aprobación de Mauricio Mora. Versión 0.1, 17 de octubre de 2026.
+Estado: aprobado por Mauricio Mora con alcance completo. Versión 0.2, 17 de octubre de 2026.
 
 ## 1. Objetivo
 
@@ -21,8 +21,8 @@ Se toma como referencia la lógica general de los módulos de servicio de los ER
 | Facturación de servicio | Mano de obra por horas o precio cerrado, materiales a precio de lista, revisión antes de facturar | Fase 1 |
 | Contratos de servicio con derechos | Qué cubre un contrato, en qué porcentaje y hasta cuándo | Fase 1 |
 | Mantenimiento preventivo | Órdenes generadas solas según calendario del contrato | Fase 1 |
-| Reclamos de garantía al proveedor | Recuperar del fabricante lo gastado en garantías | Por decidir |
-| Llamadas o casos | Mesa de ayuda que registra la solicitud antes de la orden | Por decidir |
+| Reclamos de garantía al proveedor | Recuperar del fabricante lo gastado en garantías | Fase 1 |
+| Llamadas o casos | Mesa de ayuda que registra la solicitud antes de la orden | Fase 1 |
 
 ## 3. Conceptos
 
@@ -163,20 +163,22 @@ La factura se genera en ven_facturas, con cada línea apuntando a la actividad o
 
 ## 7. Tratamiento contable
 
-Ningún asiento se escribe a mano: todos salen de con_reglas_contables. El costo se acumula primero en una cuenta de servicios en proceso y al cerrar la orden se traslada según la cobertura. Las cuentas son ilustrativas; las define el plan de cuentas de cada compañía y debe validarlas un contador.
+Ningún asiento se escribe a mano: todos salen de con_reglas_contables. Igual que en los ERP clásicos, cada línea de un asiento corresponde a un concepto contable (una cuenta con su función), y la regla resuelve la cuenta del concepto según la compañía, la clase contable y la unidad de negocio, de lo más específico a lo más general. El costo se acumula primero en servicios en proceso y al cerrar la orden se traslada según la cobertura. Las cuentas son de ejemplo; las define el plan de cuentas de cada compañía y debe validarlas un contador.
 
-| Evento | Tipo de transacción | Débito | Crédito |
-| --- | --- | --- | --- |
-| Consumo de material en la orden | SRV_CONSUMO | Servicios en proceso | Inventario |
-| Registro de horas | SRV_MANO_OBRA | Servicios en proceso | Mano de obra aplicada |
-| Servicio de tercero recibido | SRV_TERCERO | Servicios en proceso | Provisión por pagar |
-| Cierre de orden facturable | SRV_CIERRE_FACTURABLE | Costo de servicios prestados | Servicios en proceso |
-| Factura al cliente | VENTA e IVA_VENTAS | Clientes | Ingresos por servicios, IVA en ventas |
-| Cierre de orden en garantía | SRV_CIERRE_GARANTIA | Gasto de garantías | Servicios en proceso |
-| Cierre de orden por contrato | SRV_CIERRE_CONTRATO | Costo de servicios por contrato | Servicios en proceso |
-| Cierre de orden interna | SRV_CIERRE_INTERNO | Gasto del centro de costo | Servicios en proceso |
+| Evento | Débito (concepto) | Crédito (concepto) |
+| --- | --- | --- |
+| Consumo de material en la orden | Servicios en proceso (SRV_PROCESO) | Inventario (INVENTARIO) |
+| Registro de horas | Servicios en proceso (SRV_PROCESO) | Mano de obra aplicada (MO_APLICADA) |
+| Servicio de tercero | Servicios en proceso (SRV_PROCESO) | Servicios de terceros por pagar (TERCEROS_POR_PAGAR) |
+| Cierre, parte facturable | Costo de servicios prestados (COSTO_SERVICIO) | Servicios en proceso (SRV_PROCESO) |
+| Cierre, parte en garantía | Gasto de garantías (GASTO_GARANTIA) | Servicios en proceso (SRV_PROCESO) |
+| Cierre, parte por contrato | Costo de servicios por contrato (COSTO_CONTRATO) | Servicios en proceso (SRV_PROCESO) |
+| Cierre, orden interna | Gasto interno de servicio (GASTO_INTERNO) | Servicios en proceso (SRV_PROCESO) |
+| Factura al cliente | Clientes (CLIENTES) | Ingresos (INGRESO) e IVA en ventas (IVA_VENTAS) |
+| Reclamo aprobado por el proveedor | Cuentas por cobrar a proveedores por garantías (CXC_GARANTIA) | Gasto de garantías (GASTO_GARANTIA) |
+| Ajuste de inventario | Inventario (INVENTARIO) | Ajustes de inventario (AJUSTE_INV), o al revés en salidas |
 
-Con esto la garantía nunca se mezcla con el costo de lo vendido: queda en su propia cuenta, como se pidió. La clase contable del tipo de orden permite además separar cuentas por línea de negocio, por ejemplo garantías de equipos y garantías de instalaciones.
+Con esto la garantía nunca se mezcla con el costo de lo vendido: queda en su propia cuenta y, si el fabricante la reconoce, la recuperación se descuenta de esa misma cuenta. En coberturas parciales el costo se reparte en la misma proporción que la cobertura.
 
 ## 8. Cambios al modelo de datos
 
@@ -200,7 +202,12 @@ Se harán en una migración nueva (0003). Lo que ya existe se mantiene.
 | ven_contratos_lineas | Agregar porcentajes de cobertura de mano de obra y materiales, tope y tipos de orden cubiertos |
 | ven_contratos_preventivos (nueva) | Preventivos programados con frecuencia, tempario y próxima fecha |
 | ven_facturas_lineas | Agregar referencia a la actividad de orden de servicio de origen |
-| con_tipos_transaccion | Cargar los tipos SRV_ de la sección 7 |
+| con_tipos_transaccion | Cargar los conceptos contables de la sección 7 |
+| sis_flujos_estado | Agregar la fase de cada estado (registrada, programada, en ejecución, terminada, revisada, facturada, cerrada, cancelada), para que el código trabaje por fase y los números sigan siendo configurables |
+| srv_campos | Agregar la marca de dato sensible |
+| srv_casos (nueva) | Casos de la mesa de ayuda |
+| srv_casos_notas (nueva) | Bitácora de cada caso |
+| srv_reclamos (nueva) | Reclamos de garantía al fabricante o proveedor |
 
 ## 9. Pantallas
 
@@ -234,11 +241,32 @@ Se harán en una migración nueva (0003). Lo que ya existe se mantiene.
 6. Consumo de material sin existencia: se rechaza.
 7. Preventivo mensual: el proceso genera una orden por período y no la repite.
 8. Aislamiento: un suscriptor no ve órdenes, objetos ni temparios de otro.
+9. Caso de mesa de ayuda con prioridad alta: calcula su fecha compromiso y genera una orden ligada.
+10. Reclamo de garantía aprobado por un monto menor al reclamado: genera el asiento de recuperación por el monto aprobado.
+11. Campo sensible: un usuario sin permiso de datos sensibles no lo ve en la orden.
 
-## 12. Decisiones que necesito de usted
+## 12. Mesa de ayuda
 
-1. Reclamos de garantía al fabricante o proveedor (recuperar lo gastado): ¿entran en la fase 1 o quedan para después?
-2. Mesa de ayuda con casos antes de la orden: ¿fase 1 o posterior?
-3. ¿Usamos la cuenta de servicios en proceso, como propone la sección 7, o prefiere cargar el costo directo al cierre sin cuenta intermedia?
-4. Para las órdenes en garantía: ¿basta con el gasto de garantías, o también quiere una provisión de garantías al momento de la venta?
-5. ¿Las horas se registran con hora de inicio y fin, solo con total de horas, o ambas opciones según el tipo de orden?
+La mesa de ayuda registra la solicitud del cliente antes de que exista una orden: una llamada, un correo, una consulta en ventanilla o un pedido de turno médico.
+
+Cada caso tiene número, cliente, contacto, objeto atendido, canal, tipo, prioridad, asunto, descripción, responsable y estado (abierto, en proceso, en espera del cliente, resuelto, cerrado). La prioridad viene de un catálogo configurable que define las horas de respuesta comprometidas; con ellas el sistema calcula la fecha compromiso y marca los casos vencidos. El caso guarda una bitácora de notas, internas o visibles para el cliente. Si el caso requiere trabajo, desde él se genera la orden de servicio, que queda ligada al caso; si se resuelve por teléfono, se cierra con la solución registrada.
+
+## 13. Reclamos de garantía al fabricante o proveedor
+
+Cuando una orden en garantía cubre un objeto respaldado por su fabricante o proveedor, al cerrarla se puede generar un reclamo por el costo cubierto. El reclamo pasa por los estados borrador, enviado, aprobado, rechazado y cerrado. Se registra la referencia que da el proveedor y el monto aprobado, que puede ser menor al reclamado. Al aprobarse se genera el asiento de recuperación de la sección 7, y el cobro sigue luego por cuentas por cobrar.
+
+## 14. Configuración por industria y área médica
+
+El módulo trae plantillas de industria que se aplican con un clic: odontología, clínica u hospital, mantenimiento de equipos y taller automotriz. Cada plantilla crea los tipos de orden, el flujo de estados, los campos propios, los perfiles y temparios de ejemplo de esa industria. El cliente luego los ajusta a su realidad.
+
+Para el área médica se agregan dos reglas. Los campos personalizados pueden marcarse como sensibles (diagnóstico, alergias, antecedentes) y solo los ven los usuarios con el permiso de datos sensibles; el resto ve la orden sin esos campos. Además, el contenido clínico de los temparios lo define la institución con su personal médico; el sistema solo lo administra. El tratamiento de estos datos debe ajustarse a la Ley Orgánica de Protección de Datos Personales y conviene revisarlo con un abogado antes de vender a clínicas.
+
+## 15. Decisiones tomadas
+
+| Tema | Decisión |
+| --- | --- |
+| Reclamos al fabricante y mesa de ayuda | Entran en la fase 1, por instrucción de Mauricio |
+| Cuenta intermedia | Se usa servicios en proceso: permite ver el costo de las órdenes abiertas y cerrar cada una según su cobertura |
+| Provisión de garantías al vender | No en la fase 1: el gasto se reconoce al cerrar cada orden. Se puede agregar después como mejora contable |
+| Registro de horas | Se aceptan ambas formas, hora de inicio y fin o total de horas; el tipo de orden define cuál se exige |
+| Facturación de la cuota de los contratos | Corresponde al módulo de ventas; aquí solo se aplica la cobertura del contrato |

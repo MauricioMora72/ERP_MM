@@ -5,6 +5,8 @@ import type { Verificador } from './autenticacion.js';
 import { ErrorNegocio, traducirErrorBase } from './errores.js';
 import { rutasEntidades } from './rutas/entidades.js';
 import { rutasSesion } from './rutas/sesion.js';
+import { rutasServicios } from './rutas/servicios.js';
+import { rutasInventario } from './rutas/inventario.js';
 
 export interface Servicios {
   db: Db;
@@ -39,5 +41,7 @@ export async function construirApp(
   app.get('/api/salud', async () => ({ ok: true }));
   await rutasSesion(app, servicios);
   await rutasEntidades(app, servicios);
+  await rutasServicios(app, servicios);
+  await rutasInventario(app, servicios);
   return app;
 }

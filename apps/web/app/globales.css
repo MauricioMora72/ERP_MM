@@ -99,3 +99,29 @@ table.lista tbody tr:hover { background: var(--fondo-suave); }
   table.lista { display: block; overflow-x: auto; }
 }
 .formulario input[type='checkbox'] { justify-self: start; width: 16px; height: 16px; }
+
+/* Fase 1: servicios */
+.hijos { margin-top: 28px; }
+.hijos .barra h2 { margin: 0 auto 0 0; }
+.panel { border: 1px solid var(--linea); padding: 14px 16px; margin-bottom: 16px; }
+.panel h2 { margin-top: 0; }
+.datos { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px 20px; margin: 0 0 16px; }
+.datos div span { display: block; font-size: 12px; color: var(--tenue); }
+.etiqueta { display: inline-block; border: 1px solid var(--tinta); padding: 1px 8px; font-size: 12px; border-radius: 10px; }
+.etiqueta.alerta { border-color: var(--error); color: var(--error); }
+.linea-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; margin-top: 10px; }
+.linea-form label { display: grid; gap: 3px; font-size: 12px; color: var(--tenue); }
+.linea-form input[type='text'] { width: 120px; }
+.linea-form .ancho { width: 260px; }
+table.lista.compacta td, table.lista.compacta th { padding: 5px 8px; }
+table.lista tr.tachado td { text-decoration: line-through; color: var(--tenue); }
+.numero { text-align: right; font-variant-numeric: tabular-nums; }
+.totales { margin-left: auto; max-width: 340px; }
+.totales div { display: flex; justify-content: space-between; padding: 3px 0; }
+.totales div.total { border-top: 1px solid var(--tinta); font-weight: 600; margin-top: 4px; padding-top: 6px; }
+.tarjetas { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+.tarjetas section { border: 1px solid var(--linea); padding: 14px 16px; display: grid; gap: 8px; align-content: start; }
+.tarjetas h2 { margin: 0; }
+textarea { font: inherit; padding: 6px 8px; border: 1px solid var(--linea); border-radius: 3px; width: 100%; min-height: 70px; }
+.nota { border-bottom: 1px solid var(--linea); padding: 8px 0; }
+.nota small { color: var(--tenue); display: block; }
