@@ -125,3 +125,13 @@ table.lista tr.tachado td { text-decoration: line-through; color: var(--tenue); 
 textarea { font: inherit; padding: 6px 8px; border: 1px solid var(--linea); border-radius: 3px; width: 100%; min-height: 70px; }
 .nota { border-bottom: 1px solid var(--linea); padding: 8px 0; }
 .nota small { color: var(--tenue); display: block; }
+
+/* Tablas con entrada de datos (líneas de documentos) */
+table.lista.edicion tbody tr { cursor: default; }
+table.lista.edicion tbody tr:hover { background: none; }
+table.lista.edicion input[type='text'], table.lista.edicion select { width: 100%; min-width: 70px; padding: 4px 6px; }
+table.lista.edicion td { vertical-align: middle; }
+table.lista tfoot td { font-weight: 600; border-top: 1px solid var(--tinta); border-bottom: none; }
+input.corto { width: 100px; }
+.resumen { display: flex; flex-wrap: wrap; gap: 20px; margin: 10px 0; font-size: 13px; }
+.resumen strong { font-variant-numeric: tabular-nums; }

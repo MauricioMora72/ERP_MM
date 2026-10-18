@@ -1,6 +1,18 @@
 # ERP propio
 
-ERP web multiempresa para empresas de servicios en Ecuador. Fase actual: 1, gestión de servicios.
+ERP web multiempresa para empresas de servicios en Ecuador. Fase actual: 1, gestión de servicios con compras al pago y ventas al cobro.
+
+## Qué incluyen compras al pago y ventas al cobro (fase 1)
+
+Especificaciones en docs/especificaciones/com-compras-al-pago.md y docs/especificaciones/ven-ventas-al-cobro.md.
+
+- Compras: requisición, orden de compra con aprobación por flujo, recepciones parciales que entran al kardex, factura de proveedor cruzada contra lo recibido con variación de precio, retención de renta e IVA por línea, cuotas por pagar y pagos agrupados por proveedor.
+- Ventas: cotización, orden de venta con precio de lista, retención por crédito, compromiso de existencias, despachos parciales, facturación de lo despachado con su costo, nota de crédito con devolución a bodega, retención recibida, cobros y facturación periódica de contratos.
+- Estados por línea con estado siguiente y último estado, configurables en Flujos de estado.
+- Antigüedad de saldos de cuentas por cobrar y por pagar.
+- Todo asiento sale del motor contable por reglas y cuadra. Las cuentas, conceptos, códigos de retención y formas de pago se cargan como ejemplo y un contador debe validarlos.
+
+Para probarlo: registre un proveedor y un cliente (Compras, Proveedores y Ventas, Clientes), una lista de precios, una cuenta bancaria (Cobros y pagos, Cuentas bancarias) y un artículo. Luego haga el ciclo en Compras, Requisiciones y órdenes, y en Ventas, Cotizaciones y órdenes.
 
 ## Qué incluye el módulo de gestión de servicios (fase 1)
 

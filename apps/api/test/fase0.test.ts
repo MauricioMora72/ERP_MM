@@ -108,8 +108,8 @@ describe('Numeración de documentos', () => {
     const a = await altaSuscriptor(e.app, 'num');
     const tipo = await crear(a.correo, 'tipos-documento', {
       modulo: 'VEN',
-      codigo: 'OV',
-      descripcion: 'Orden de venta',
+      codigo: 'PRB',
+      descripcion: 'Documento de prueba',
       clase: 'ORDEN',
     });
     expect(tipo.statusCode).toBe(201);

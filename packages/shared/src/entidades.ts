@@ -61,6 +61,8 @@ export interface Entidad {
   soloLectura?: boolean;
   /** Orden descendente en la lista. */
   ordenDescendente?: boolean;
+  /** Pantalla propia de detalle; si existe, la lista abre esa en lugar de la ficha genérica. */
+  rutaDetalle?: string;
   /** Registros dependientes que se muestran y agregan desde la ficha. */
   hijos?: { entidad: string; campo: string; titulo: string }[];
   /** No aparece en el menú (se llega desde la ficha del padre). */
@@ -71,6 +73,8 @@ export type Modulo =
   | 'Servicios'
   | 'Maestros'
   | 'Ventas'
+  | 'Compras'
+  | 'Cobros y pagos'
   | 'Inventario'
   | 'Contabilidad'
   | 'Localización'
@@ -654,7 +658,7 @@ export function buscarEntidad(nombre: string): Entidad | undefined {
   return ENTIDADES.find((e) => e.nombre === nombre);
 }
 
-export const MODULOS_MENU: Modulo[] = ['Servicios', 'Maestros', 'Ventas', 'Inventario', 'Contabilidad', 'Localización', 'Catálogos', 'Sistema'];
+export const MODULOS_MENU: Modulo[] = ['Servicios', 'Ventas', 'Compras', 'Cobros y pagos', 'Inventario', 'Maestros', 'Contabilidad', 'Localización', 'Catálogos', 'Sistema'];
 
 /** Pantallas propias (no genéricas) que aparecen en el menú. */
 export const ENLACES_MENU: { modulo: Modulo; titulo: string; ruta: string; recurso: string }[] = [
@@ -663,4 +667,12 @@ export const ENLACES_MENU: { modulo: Modulo; titulo: string; ruta: string; recur
   { modulo: 'Servicios', titulo: 'Reclamos de garantía', ruta: '/servicio/reclamos', recurso: 'srv-reclamos' },
   { modulo: 'Servicios', titulo: 'Configurar industria', ruta: '/servicio/industria', recurso: 'srv-config' },
   { modulo: 'Inventario', titulo: 'Ajustes y existencias', ruta: '/inventario/ajustes', recurso: 'inventario' },
+  { modulo: 'Ventas', titulo: 'Cotizaciones y órdenes', ruta: '/ventas/ordenes', recurso: 'ventas' },
+  { modulo: 'Ventas', titulo: 'Notas de crédito', ruta: '/ventas/notas-credito', recurso: 'ventas' },
+  { modulo: 'Ventas', titulo: 'Facturar contratos', ruta: '/ventas/contratos', recurso: 'ventas' },
+  { modulo: 'Compras', titulo: 'Requisiciones y órdenes', ruta: '/compras/ordenes', recurso: 'compras' },
+  { modulo: 'Compras', titulo: 'Facturas de proveedor', ruta: '/compras/facturas', recurso: 'compras' },
+  { modulo: 'Cobros y pagos', titulo: 'Cobros', ruta: '/cxc/cobros', recurso: 'cxc' },
+  { modulo: 'Cobros y pagos', titulo: 'Pagos', ruta: '/cxp/pagos', recurso: 'cxp' },
+  { modulo: 'Cobros y pagos', titulo: 'Antigüedad de saldos', ruta: '/cartera/antiguedad', recurso: 'cxc' },
 ];

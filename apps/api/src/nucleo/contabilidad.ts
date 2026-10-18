@@ -15,6 +15,8 @@ export interface LineaContable {
   unidadNegocioId?: string | null;
   centroCostoId?: string | null;
   terceroId?: string | null;
+  /** Cuenta propia de la transacción (línea de compra por cuenta, cuenta bancaria). Si viene, no se busca regla. */
+  cuentaId?: string | null;
   debito?: Decimal.Value;
   credito?: Decimal.Value;
   glosa?: string;
@@ -34,6 +36,13 @@ async function resolverCuenta(
   companiaId: string,
   linea: LineaContable,
 ): Promise<{ cuentaId: string; centroCostoId: string | null }> {
+  if (linea.cuentaId) {
+    const c = await sql<{ acepta_movimiento: boolean; codigo: string }>`
+      select acepta_movimiento, codigo from erp.con_cuentas where id = ${linea.cuentaId} and compania_id = ${companiaId}`.execute(trx);
+    if (!c.rows[0]) throw new ErrorNegocio(400, 'La cuenta contable indicada no existe en la compañía.');
+    if (!c.rows[0].acepta_movimiento) throw new ErrorNegocio(400, `La cuenta ${c.rows[0].codigo} no acepta movimiento.`);
+    return { cuentaId: linea.cuentaId, centroCostoId: null };
+  }
   const r = await sql<{ cuenta_id: string; centro_costo_id: string | null }>`
     select r.cuenta_id, r.centro_costo_id
     from erp.con_reglas_contables r
@@ -56,8 +65,12 @@ async function resolverCuenta(
 
 /** Genera y contabiliza un asiento cuadrado. Devuelve su id, o null si todas las líneas son cero. */
 export async function contabilizar(trx: Trx, asiento: Asiento): Promise<string | null> {
+  // Cada línea queda con su neto en débito o en crédito; un débito negativo es un crédito.
   const lineas = asiento.lineas
-    .map((l) => ({ ...l, d: new Decimal(l.debito ?? 0).toDecimalPlaces(2), c: new Decimal(l.credito ?? 0).toDecimalPlaces(2) }))
+    .map((l) => {
+      const neto = new Decimal(l.debito ?? 0).minus(l.credito ?? 0).toDecimalPlaces(2);
+      return { ...l, d: neto.greaterThan(0) ? neto : new Decimal(0), c: neto.lessThan(0) ? neto.negated() : new Decimal(0) };
+    })
     .filter((l) => !l.d.isZero() || !l.c.isZero());
   if (lineas.length === 0) return null;
   const totalD = lineas.reduce((s, l) => s.plus(l.d), new Decimal(0));

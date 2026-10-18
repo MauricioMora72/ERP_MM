@@ -172,9 +172,9 @@ export const ENTIDADES_FASE1: Entidad[] = [
       dec('precio', 'Precio por período', 6, { requerido: true }),
       ref('tipo_orden_id', 'Tipo de orden cubierto (vacío: todos)', 'tipos-orden'),
       dec('pct_mano_obra', 'Cubre mano de obra (%)', 4, { defecto: '100' }), dec('pct_materiales', 'Cubre materiales (%)', 4, { defecto: '0' }),
-      ent('tope_ordenes', 'Tope de órdenes'),
+      ent('tope_ordenes', 'Tope de órdenes'), fec('proxima_facturacion', 'Próxima facturación (vacío: inicio del contrato)'),
     ],
-    listado: ['linea', 'articulo_id', 'tipo_orden_id', 'pct_mano_obra', 'pct_materiales', 'tope_ordenes'], busqueda: [], etiqueta: ['linea'], orden: 'linea',
+    listado: ['linea', 'articulo_id', 'precio', 'proxima_facturacion', 'tipo_orden_id', 'pct_mano_obra', 'pct_materiales'], busqueda: [], etiqueta: ['linea'], orden: 'linea',
   }),
   base({
     nombre: 'preventivos', tabla: 'ven_contratos_preventivos', titulo: 'Preventivos programados', tituloSingular: 'Preventivo', modulo: 'Servicios', oculta: true,
@@ -209,7 +209,7 @@ export const ENTIDADES_FASE1: Entidad[] = [
     listado: ['direccion_id', 'compania_id', 'lista_precios_id', 'limite_credito', 'bloqueado'], busqueda: [], etiqueta: ['direccion_id'], orden: 'creado_en',
   }),
   base({
-    nombre: 'proveedores', tabla: 'mae_proveedores', titulo: 'Proveedores', tituloSingular: 'Proveedor', modulo: 'Ventas',
+    nombre: 'proveedores', tabla: 'mae_proveedores', titulo: 'Proveedores', tituloSingular: 'Proveedor', modulo: 'Compras',
     campos: [
       ref('direccion_id', 'Libro de direcciones', 'direcciones', { requerido: true, soloAlta: true }),
       ref('compania_id', 'Compañía', 'companias', { requerido: true, soloAlta: true }),
@@ -235,6 +235,7 @@ export const ENTIDADES_FASE1: Entidad[] = [
   }),
   base({
     nombre: 'facturas', tabla: 'ven_facturas', titulo: 'Facturas emitidas', tituloSingular: 'Factura', modulo: 'Ventas', soloLectura: true, ordenDescendente: true,
+    rutaDetalle: '/ventas/facturas',
     campos: [
       t('establecimiento', 'Establecimiento'), t('punto_emision', 'Punto de emisión'), ent('secuencial', 'Secuencial'), fec('fecha', 'Fecha'),
       ref('cliente_id', 'Cliente', 'direcciones'), dec('subtotal', 'Subtotal', 2), dec('descuento', 'Cubierto o descuento', 2),
@@ -317,7 +318,28 @@ export const ENTIDADES_FASE1: Entidad[] = [
     listado: ['linea', 'cuenta_id', 'centro_costo_id', 'tercero_id', 'debito', 'credito'], busqueda: [], etiqueta: ['linea'], orden: 'linea',
   }),
 
+  // ------------------------------------------------------------ Cobros y pagos
+  base({
+    nombre: 'cuentas-bancarias', tabla: 'con_cuentas_bancarias', titulo: 'Cuentas bancarias', tituloSingular: 'Cuenta bancaria', modulo: 'Cobros y pagos',
+    campos: [
+      ref('compania_id', 'Compañía', 'companias', { requerido: true, soloAlta: true }), cod(), ref('banco_id', 'Banco', 'direcciones', { requerido: true }),
+      t('numero', 'Número de cuenta', { requerido: true, max: 30 }),
+      opc('tipo', 'Tipo', [['CORRIENTE', 'Corriente'], ['AHORROS', 'Ahorros']], { requerido: true }),
+      ref('moneda_id', 'Moneda', 'monedas', { requerido: true }), ref('cuenta_id', 'Cuenta contable', 'cuentas', { requerido: true }), activo,
+    ],
+    listado: ['codigo', 'banco_id', 'numero', 'tipo', 'activo'], busqueda: ['codigo', 'numero'], etiqueta: ['codigo', 'numero'], orden: 'codigo', inactivable: true,
+  }),
   // ------------------------------------------------------------ Localización
+  base({
+    nombre: 'codigos-retencion', tabla: 'ec_codigos_retencion', titulo: 'Códigos de retención', tituloSingular: 'Código de retención', modulo: 'Localización',
+    campos: [
+      opc('tipo', 'Tipo', [['RENTA', 'Renta'], ['IVA', 'IVA']], { requerido: true }), t('codigo', 'Código SRI', { requerido: true, max: 10 }),
+      t('descripcion', 'Concepto', { requerido: true, max: 300 }), dec('porcentaje', 'Porcentaje', 4, { requerido: true }),
+      fec('vigente_desde', 'Vigente desde', { requerido: true }), fec('vigente_hasta', 'Vigente hasta'),
+    ],
+    listado: ['tipo', 'codigo', 'descripcion', 'porcentaje', 'vigente_desde', 'vigente_hasta'], busqueda: ['codigo', 'descripcion'],
+    etiqueta: ['codigo', 'descripcion'], orden: 'codigo',
+  }),
   base({
     nombre: 'establecimientos', tabla: 'ec_establecimientos', titulo: 'Establecimientos SRI', tituloSingular: 'Establecimiento', modulo: 'Localización',
     campos: [

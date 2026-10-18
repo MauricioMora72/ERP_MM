@@ -1390,3 +1390,32 @@ Llaves únicas: propuesta_id, secuencia.
 | registro_id | uuid |  |  | Registro afectado |
 | datos_nuevos | jsonb |  |  | Valores a aplicar |
 | datos_anteriores | jsonb |  |  | Valores previos, para revertir |
+
+## Cambios posteriores al esquema inicial
+
+El esquema inicial se amplía solo con migraciones numeradas en packages/db/migraciones. Esta sección resume lo que agregan; el detalle de cada columna está en los comentarios de la base.
+
+### Migración 0003: gestión de servicios
+
+Tablas nuevas: srv_perfiles, srv_recursos_perfiles, srv_tarifas, srv_garantias_definicion, srv_garantias_objeto, ven_contratos_preventivos, srv_casos, srv_casos_notas, srv_ordenes_horas, srv_ordenes_terceros y srv_reclamos. Columnas nuevas en srv_ordenes para la cobertura (cobertura, cobertura_fijada, motivo_cobertura, garantia_objeto_id, contrato_linea_id), el origen (caso_id, preventivo_id, plantilla_id) y el cierre (factura_id, asiento_cierre_id). La columna fase de sis_flujos_estado da el significado de cada estado. Ver docs/especificaciones/srv-gestion-de-servicios.md.
+
+### Migración 0005: compras al pago y ventas al cobro
+
+| Tabla | Columna | Tipo | Descripción |
+| --- | --- | --- | --- |
+| sis_flujos_estado | fase | varchar(20) | Agrega las fases APROBACION, APROBADA, RECIBIDA, RETENIDA y DESPACHADA |
+| com_ordenes | observacion | varchar(500) | Observación |
+| com_facturas | numero | bigint | Número interno de registro |
+| com_facturas | condicion_pago_id | uuid | Condición de pago |
+| com_facturas | retenciones | numeric(18,2) | Total retenido al proveedor |
+| com_facturas_lineas | articulo_id | uuid | Artículo o servicio |
+| com_facturas_lineas | unidad_negocio_id | uuid | Centro de costo |
+| com_facturas_lineas | ret_renta_id | uuid | Código de retención de renta |
+| com_facturas_lineas | ret_iva_id | uuid | Código de retención de IVA |
+| ven_ordenes | observacion | varchar(500) | Observación |
+| ven_ordenes_lineas | cantidad_facturada | numeric(18,4) | Cantidad facturada |
+| ven_facturas_lineas | cantidad_devuelta | numeric(18,4) | Cantidad ya devuelta con notas de crédito |
+| cxc_aplicaciones | nota_credito_id | uuid | Nota de crédito aplicada; cada aplicación tiene exactamente un origen: cobro, retención o nota de crédito |
+| ec_retenciones | autorizacion | varchar(49) | Clave de acceso o autorización |
+
+Ver docs/especificaciones/com-compras-al-pago.md y docs/especificaciones/ven-ventas-al-cobro.md.

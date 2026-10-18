@@ -9,7 +9,12 @@ export type Fase =
   | 'REVISADA'
   | 'FACTURADA'
   | 'CERRADA'
-  | 'CANCELADA';
+  | 'CANCELADA'
+  | 'APROBACION'
+  | 'APROBADA'
+  | 'RECIBIDA'
+  | 'RETENIDA'
+  | 'DESPACHADA';
 
 export interface Estado {
   estado: number;
@@ -44,4 +49,34 @@ export function siguientesPermitidos(estados: Estado[], actual: number): Estado[
   if (!e) return [];
   const destinos = new Set<number>([...(e.estado_siguiente != null ? [e.estado_siguiente] : []), ...(e.estados_alternos ?? [])]);
   return estados.filter((x) => destinos.has(x.estado));
+}
+
+/** Estado de una línea de documento: el último alcanzado y el siguiente esperado. */
+export interface EstadoLinea {
+  ultimo: number;
+  siguiente: number;
+}
+
+/** Arma el par último/siguiente para dejar una línea en el estado indicado. */
+export function estadoLinea(estados: Estado[], estado: number): EstadoLinea {
+  const e = estados.find((x) => x.estado === estado);
+  if (!e) throw new ErrorNegocio(400, `El estado ${estado} no existe en el flujo.`);
+  return { ultimo: e.estado, siguiente: e.estado_siguiente ?? e.estado };
+}
+
+/**
+ * Lleva una línea a la fase que resulta de una acción del sistema (recibir, despachar, facturar).
+ * La acción manda, como en los ERP de referencia: basta con que el estado de destino exista y esté adelante.
+ */
+export function avanzarPorAccion(estados: Estado[], actual: number, fase: Fase): EstadoLinea {
+  const destino = estadoDeFase(estados, fase);
+  if (destino.estado < actual) throw new ErrorNegocio(400, `La línea ya pasó la fase ${fase.toLowerCase()}.`);
+  return estadoLinea(estados, destino.estado);
+}
+
+/** Cambio manual de estado: solo al siguiente o a un alterno configurado. */
+export function cambioManual(estados: Estado[], actual: number, destino: number): Estado {
+  const e = siguientesPermitidos(estados, actual).find((x) => x.estado === destino);
+  if (!e) throw new ErrorNegocio(400, `No se puede pasar del estado ${actual} al ${destino}.`);
+  return e;
 }

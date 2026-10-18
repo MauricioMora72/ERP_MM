@@ -115,3 +115,20 @@ export async function ligarAsientoKardex(trx: Trx, kardexId: string, asientoId: 
   // El rol de la aplicación no puede modificar el kardex; esta función de base lo hace solo para el asiento.
   await sql`select erp.fn_kardex_ligar_asiento(${kardexId}, ${asientoId})`.execute(trx);
 }
+
+/**
+ * Compromete (positivo) o libera (negativo) existencia de un artículo inventariable en una bodega.
+ * Devuelve lo disponible después del compromiso; los no inventariables no comprometen.
+ */
+export async function comprometer(trx: Trx, articuloId: string, unidadNegocioId: string, cantidad: Decimal.Value): Promise<Decimal | null> {
+  const a = await sql<{ tipo_existencia: string }>`select tipo_existencia from erp.mae_articulos where id = ${articuloId}`.execute(trx);
+  if (a.rows[0]?.tipo_existencia !== 'INVENTARIABLE') return null;
+  await sql`insert into erp.inv_saldos (articulo_id, unidad_negocio_id, ubicacion_id, lote_id)
+            values (${articuloId}, ${unidadNegocioId}, null, null)
+            on conflict on constraint uq_inv_saldos_1 do nothing`.execute(trx);
+  const r = await sql<{ disponible: string }>`
+    update erp.inv_saldos set comprometido = greatest(comprometido + ${new Decimal(cantidad).toFixed(4)}, 0)
+    where articulo_id = ${articuloId} and unidad_negocio_id = ${unidadNegocioId} and ubicacion_id is null and lote_id is null
+    returning en_mano - comprometido as disponible`.execute(trx);
+  return new Decimal(r.rows[0]!.disponible);
+}

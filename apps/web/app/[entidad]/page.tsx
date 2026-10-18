@@ -70,7 +70,7 @@ function Lista() {
         </thead>
         <tbody>
           {datos?.filas.map((fila) => (
-            <tr key={String(fila.id)} onClick={() => router.push(`/${entidad.nombre}/${String(fila.id)}`)}>
+            <tr key={String(fila.id)} onClick={() => router.push(`${entidad.rutaDetalle ?? `/${entidad.nombre}`}/${String(fila.id)}`)}>
               {columnas.map((c) => (
                 <td key={c.nombre}>
                   <Celda campo={c} valor={fila[c.nombre]} />

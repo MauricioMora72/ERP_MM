@@ -4,6 +4,7 @@ import { tienePermiso, type Sesion } from '../contexto.js';
 import { ErrorNegocio } from '../errores.js';
 import { contabilizar } from '../nucleo/contabilidad.js';
 import { hoy, numerar, tipoDocumento } from '../nucleo/documentos.js';
+import { emitirFactura } from '../nucleo/facturacion.js';
 import { estadoDeFase, estadosDe, faseDe, siguientesPermitidos, type Fase } from '../nucleo/flujos.js';
 import { ligarAsientoKardex, moverInventario } from '../nucleo/inventario.js';
 import { companiaDe, D, existe, impuestoArticulo, precioLista, tarifaVigente } from './comun.js';
@@ -641,56 +642,32 @@ export async function facturar(trx: Trx, sesion: Sesion, ordenId: string): Promi
   let facturaId: string | null = null;
 
   if (D(pre.totales.totalCliente).greaterThan(0)) {
-    const tipoFa = await tipoDocumento(trx, 'VEN', 'FA');
-    const est = await sql<{ establecimiento: string; punto_emision: string }>`
-      select establecimiento, punto_emision from erp.ec_establecimientos
-      where compania_id = ${orden.compania_id} and activo order by establecimiento, punto_emision limit 1`.execute(trx);
-    if (!est.rows[0]) throw new ErrorNegocio(400, 'Configure un establecimiento y punto de emisión del SRI para facturar.');
-    const moneda = await sql<{ moneda_id: string }>`select moneda_id from erp.mae_companias where id = ${orden.compania_id}`.execute(trx);
-    const secuencial = await numerar(trx, orden.compania_id, tipoFa.id);
-    const f = await sql<{ id: string }>`
-      insert into erp.ven_facturas (compania_id, tipo_documento_id, establecimiento, punto_emision, secuencial, fecha, cliente_id,
-        moneda_id, subtotal, descuento, impuestos, total)
-      values (${orden.compania_id}, ${tipoFa.id}, ${est.rows[0].establecimiento}, ${est.rows[0].punto_emision}, ${secuencial},
-        ${fecha}, ${orden.cliente_id}, ${moneda.rows[0]!.moneda_id}, ${pre.totales.subtotal}, ${pre.totales.cubierto},
-        ${pre.totales.impuestos}, ${pre.totales.totalCliente})
-      returning id`.execute(trx);
-    facturaId = f.rows[0]!.id;
-    let n = 1;
-    const lineasIngreso: { clase: string | null; monto: Decimal }[] = [];
-    for (const l of pre.lineas) {
-      if (D(l.montoCliente).isZero()) continue;
-      await sql`
-        insert into erp.ven_facturas_lineas (factura_id, linea, articulo_id, descripcion, cantidad, precio, descuento, impuesto_id,
-          valor_impuesto, total, orden_servicio_id, consumo_id, actividad_id, tercero_id)
-        values (${facturaId}, ${n++}, ${l.articuloId}, ${l.descripcion}, ${l.cantidad}, ${l.precioUnitario}, ${l.cubierto},
-          ${l.impuestoId}, ${l.valorImpuesto}, ${D(l.montoCliente).plus(l.valorImpuesto).toFixed(2)}, ${ordenId},
-          ${l.origen === 'MAT' ? l.origenId : null}, ${l.origen === 'MO' ? l.origenId : null}, ${l.origen === 'TER' ? l.origenId : null})`.execute(trx);
-      lineasIngreso.push({ clase: l.claseContableId, monto: D(l.montoCliente) });
-    }
-    const asientoFactura = await contabilizar(trx, {
+    const emitida = await emitirFactura(trx, {
       companiaId: orden.compania_id,
+      clienteId: orden.cliente_id,
       fecha,
-      glosa: `Factura ${est.rows[0].establecimiento}-${est.rows[0].punto_emision}-${secuencial}, orden de servicio ${orden.numero}`,
-      origenModulo: 'VEN',
-      origenId: facturaId,
-      lineas: [
-        { concepto: 'CLIENTES', terceroId: orden.cliente_id, debito: pre.totales.totalCliente },
-        ...lineasIngreso.map((l) => ({ concepto: 'INGRESO', claseContableId: l.clase, unidadNegocioId: orden.unidad_negocio_id, credito: l.monto })),
-        { concepto: 'IVA_VENTAS', credito: pre.totales.impuestos },
-      ],
+      glosa: `Orden de servicio ${orden.numero}`,
+      lineas: pre.lineas
+        .filter((l) => !D(l.montoCliente).isZero())
+        .map((l) => ({
+          articuloId: l.articuloId,
+          descripcion: l.descripcion,
+          cantidad: l.cantidad,
+          precio: l.precioUnitario,
+          subtotal: l.subtotal,
+          descuento: l.cubierto,
+          impuestoId: l.impuestoId,
+          porcentajeImpuesto: 0,
+          valorImpuesto: l.valorImpuesto,
+          claseContableId: l.claseContableId,
+          unidadNegocioId: orden.unidad_negocio_id,
+          ordenServicioId: ordenId,
+          consumoId: l.origen === 'MAT' ? l.origenId : null,
+          actividadId: l.origen === 'MO' ? l.origenId : null,
+          terceroId: l.origen === 'TER' ? l.origenId : null,
+        })),
     });
-    await sql`update erp.ven_facturas set asiento_id = ${asientoFactura} where id = ${facturaId}`.execute(trx);
-
-    const cond = await sql<{ dias: number | null }>`
-      select cp.dias_primera as dias from erp.mae_clientes c join erp.mae_condiciones_pago cp on cp.id = c.condicion_pago_id
-      where c.direccion_id = ${orden.cliente_id} and c.compania_id = ${orden.compania_id}`.execute(trx);
-    const dias = cond.rows[0]?.dias ?? 0;
-    await sql`
-      insert into erp.cxc_documentos (compania_id, tipo_documento_id, numero, cuota, cliente_id, factura_id, fecha, vencimiento,
-        moneda_id, monto, saldo)
-      values (${orden.compania_id}, ${tipoFa.id}, ${secuencial}, 1, ${orden.cliente_id}, ${facturaId}, ${fecha},
-        (${fecha}::date + ${dias}::int), ${moneda.rows[0]!.moneda_id}, ${pre.totales.totalCliente}, ${pre.totales.totalCliente})`.execute(trx);
+    facturaId = emitida.facturaId;
   }
 
   // Cierre: el costo acumulado en servicios en proceso pasa a su destino según la cobertura.

@@ -14,6 +14,9 @@ export type BaseErp = any;
 export type Db = Kysely<BaseErp>;
 export type Trx = Transaction<BaseErp>;
 
+// Las fechas sin hora (date) se devuelven como texto AAAA-MM-DD: así no se corren de día por la zona horaria del servidor.
+pg.types.setTypeParser(1082, (v: string) => v);
+
 /** pg devuelve numeric e int8 como texto: así nunca se pierden decimales ni dígitos. */
 export function crearDb(connectionString: string, max = 10): Db {
   const pool = new pg.Pool({ connectionString, max });
