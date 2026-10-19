@@ -392,7 +392,7 @@ export async function consumir(
       { concepto: 'INVENTARIO', claseContableId: mov.claseContableId, unidadNegocioId: unidadId, credito: mov.costoTotal },
     ],
   });
-  if (mov.kardexId) await ligarAsientoKardex(trx, mov.kardexId, asiento);
+  if (mov.kardexId) await ligarAsientoKardex(trx, mov.kardexIds, asiento);
   await sql`update erp.srv_ordenes_consumos set cantidad = ${cantidad.toFixed(4)}, unidad_negocio_id = ${unidadId},
               costo_unitario = ${mov.costoUnitario.toDecimalPlaces(6).toFixed(6)}, kardex_id = ${mov.kardexId}, asiento_id = ${asiento}
             where id = ${consumoId}`.execute(trx);
@@ -435,7 +435,7 @@ export async function reversarConsumo(trx: Trx, ordenId: string, consumoId: stri
       { concepto: 'SRV_PROCESO', claseContableId: orden.tipo_clase_contable_id, unidadNegocioId: orden.unidad_negocio_id, credito: mov.costoTotal },
     ],
   });
-  if (mov.kardexId) await ligarAsientoKardex(trx, mov.kardexId, asiento);
+  if (mov.kardexId) await ligarAsientoKardex(trx, mov.kardexIds, asiento);
   await sql`update erp.srv_ordenes_consumos set reversado = true where id = ${consumoId}`.execute(trx);
 }
 

@@ -170,3 +170,51 @@ export async function asegurarConfiguracionComercial(trx: Trx, companiaId: strin
     }
   }
 }
+
+/** Configuración de contabilidad general e inventarios complementarios (migración 0006). Idempotente. */
+const TIPOS_CONTABLES: [string, string, string, string, boolean, boolean][] = [
+  ['INV', 'TR', 'Transferencia entre bodegas', 'TRANSFERENCIA', true, true],
+  ['INV', 'CF', 'Conteo físico', 'CONTEO', true, true],
+];
+
+const CUENTAS_CONTABLES: [string, string, number, string | null, 'D' | 'A', 'BALANCE' | 'RESULTADOS', boolean][] = [
+  ['3', 'Patrimonio', 1, null, 'A', 'BALANCE', false],
+  ['3.1.01', 'Capital social', 2, '3', 'A', 'BALANCE', true],
+  ['3.1.02', 'Resultados acumulados', 2, '3', 'A', 'BALANCE', true],
+  ['3.1.03', 'Resultado del ejercicio', 2, '3', 'A', 'BALANCE', true],
+  ['5.1.09', 'Gastos bancarios', 2, '5', 'D', 'RESULTADOS', true],
+];
+
+export async function asegurarConfiguracionContable(trx: Trx, companiaId: string): Promise<void> {
+  const listo = await sql`
+    select 1 from erp.sis_tipos_documento t, erp.con_cuentas c
+    where t.modulo = 'INV' and t.codigo = 'CF' and c.compania_id = ${companiaId} and c.codigo = '5.1.09' limit 1`.execute(trx);
+  if (listo.rows.length) return;
+  for (const [modulo, codigo, descripcion, clase, inv, cont] of TIPOS_CONTABLES) {
+    await sql`insert into erp.sis_tipos_documento (modulo, codigo, descripcion, clase, afecta_inventario, genera_contabilidad)
+              values (${modulo}, ${codigo}, ${descripcion}, ${clase}, ${inv}, ${cont})
+              on conflict on constraint uq_sis_tipos_documento_1 do nothing`.execute(trx);
+  }
+  for (const [codigo, descripcion, nivel, padre, naturaleza, tipo, mov] of CUENTAS_CONTABLES) {
+    await sql`
+      insert into erp.con_cuentas (compania_id, codigo, descripcion, nivel, cuenta_padre_id, naturaleza, tipo, acepta_movimiento)
+      values (${companiaId}, ${codigo}, ${descripcion}, ${nivel},
+              (select id from erp.con_cuentas where compania_id = ${companiaId} and codigo = ${padre}), ${naturaleza}, ${tipo}, ${mov})
+      on conflict on constraint uq_con_cuentas_1 do nothing`.execute(trx);
+  }
+  for (const [codigo, descripcion, cuenta] of [['RESULTADO_EJERCICIO', 'Resultado del ejercicio', '3.1.03'], ['GASTO_BANCARIO', 'Gastos bancarios', '5.1.09']] as const) {
+    await sql`insert into erp.con_tipos_transaccion (codigo, descripcion) values (${codigo}, ${descripcion})
+              on conflict on constraint uq_con_tipos_transaccion_1 do nothing`.execute(trx);
+    await sql`
+      insert into erp.con_reglas_contables (compania_id, tipo_transaccion_id, cuenta_id)
+      select ${companiaId}, t.id, c.id from erp.con_tipos_transaccion t, erp.con_cuentas c
+      where t.codigo = ${codigo} and c.compania_id = ${companiaId} and c.codigo = ${cuenta}
+        and not exists (select 1 from erp.con_reglas_contables r where r.compania_id = ${companiaId} and r.tipo_transaccion_id = t.id)`.execute(trx);
+  }
+}
+
+/** Toda la configuración posterior al alta inicial, para compañías nuevas y anteriores. */
+export async function asegurarConfiguracion(trx: Trx, companiaId: string): Promise<void> {
+  await asegurarConfiguracionComercial(trx, companiaId);
+  await asegurarConfiguracionContable(trx, companiaId);
+}

@@ -250,7 +250,7 @@ export async function convertirRequisicion(
 export async function recibir(
   trx: Trx,
   ordenId: string,
-  d: { fecha?: string | null; lineas: { lineaId: string; cantidad: Decimal.Value }[] },
+  d: { fecha?: string | null; lineas: { lineaId: string; cantidad: Decimal.Value; lote?: string | null; vencimiento?: string | null }[] },
 ): Promise<{ numero: string; recepciones: string[] }> {
   const cab = await cabecera(trx, ordenId);
   if (cab.codigo !== 'OC') throw new ErrorNegocio(400, 'Solo se recibe contra órdenes de compra.');
@@ -275,13 +275,18 @@ export async function recibir(
     const recepcionId = r.rows[0]!.id;
     const costo = cantidad.times(l.costo_unitario).toDecimalPlaces(2);
     let kardexId: string | null = null;
+    let kardexIds: string[] = [];
+    let loteId: string | null = null;
     let debito: LineaContable;
     if (l.articulo_id && l.tipo_existencia === 'INVENTARIABLE') {
       const mov = await moverInventario(trx, {
         companiaId: cab.compania_id, fecha, articuloId: l.articulo_id, unidadNegocioId: l.unidad_negocio_id, cantidad,
+        lote: p.lote ? { codigo: p.lote, vencimiento: p.vencimiento ?? null } : null,
         costoUnitario: l.costo_unitario, tipoDocumentoId: tipo.id, numeroDocumento: numero, origenModulo: 'COM', origenLineaId: recepcionId,
       });
       kardexId = mov.kardexId;
+      kardexIds = mov.kardexIds;
+      loteId = mov.porLote[0]?.loteId ?? null;
       debito = { concepto: 'INVENTARIO', claseContableId: mov.claseContableId, unidadNegocioId: l.unidad_negocio_id, debito: mov.costoTotal };
     } else {
       debito = { concepto: 'GASTO_COMPRA', cuentaId: l.cuenta_id, claseContableId: l.clase_contable_id, unidadNegocioId: l.unidad_negocio_id, debito: costo };
@@ -294,8 +299,8 @@ export async function recibir(
         { concepto: 'REC_POR_FACTURAR', claseContableId: l.clase_contable_id, terceroId: cab.proveedor_id, credito: debito.debito },
       ],
     });
-    if (kardexId) await ligarAsientoKardex(trx, kardexId, asiento);
-    await sql`update erp.com_recepciones set kardex_id = ${kardexId}, asiento_id = ${asiento} where id = ${recepcionId}`.execute(trx);
+    await ligarAsientoKardex(trx, kardexIds, asiento);
+    await sql`update erp.com_recepciones set kardex_id = ${kardexId}, lote_id = ${loteId}, asiento_id = ${asiento} where id = ${recepcionId}`.execute(trx);
     await sql`update erp.com_ordenes_lineas set cantidad_recibida = cantidad_recibida + ${cantidad.toFixed(4)} where id = ${l.id}`.execute(trx);
     if (cantidad.equals(pendiente)) await moverLinea(trx, 'com_ordenes_lineas', l.id, estados, l.estado_ultimo, 'RECIBIDA');
     recepciones.push(recepcionId);
@@ -601,7 +606,7 @@ export async function detalleCompra(trx: Trx, ordenId: string) {
   if (!c) throw new ErrorNegocio(404, 'La orden no existe.');
   const estados = await estadosDe(trx, c.tipo_documento_id);
   const lineas = await sql<{ estado_ultimo: number }>`
-    select l.*, a.codigo as articulo, a.tipo_existencia, cu.codigo as cuenta, u.codigo as bodega,
+    select l.*, a.codigo as articulo, a.tipo_existencia, a.controla_lote, cu.codigo as cuenta, u.codigo as bodega,
            round(l.cantidad * l.costo_unitario, 2) as total
     from erp.com_ordenes_lineas l left join erp.mae_articulos a on a.id = l.articulo_id
     left join erp.con_cuentas cu on cu.id = l.cuenta_id join erp.mae_unidades_negocio u on u.id = l.unidad_negocio_id

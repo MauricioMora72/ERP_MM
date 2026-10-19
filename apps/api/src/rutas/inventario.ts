@@ -1,85 +1,87 @@
 import type { FastifyInstance } from 'fastify';
-import Decimal from 'decimal.js';
 import { z } from 'zod';
-import { sql } from '@erp/db';
-import { erroresPorCampo } from '@erp/shared';
 import type { Servicios } from '../app.js';
-import { enSesion, exigirPermiso, obtenerSesion } from '../contexto.js';
-import { ErrorNegocio } from '../errores.js';
-import { contabilizar } from '../nucleo/contabilidad.js';
-import { hoy, numerar, tipoDocumento } from '../nucleo/documentos.js';
-import { ligarAsientoKardex, moverInventario } from '../nucleo/inventario.js';
-import { companiaDe } from '../servicios/comun.js';
+import {
+  agregarLineaConteo, consultaKardex, contabilizarConteo, crearConteo, detalleDocumento, existencias, listarDocumentos, lotesDisponibles,
+  registrarAjuste, registrarConteo, transferir,
+} from '../inventario/inventario.js';
+import { hoy } from '../nucleo/documentos.js';
+import { crearConPermiso, fecha, idValido, leer, monto, opcUuid, uuid } from './compras.js';
 
-/** Ajustes de inventario (entradas y salidas) y consulta de existencias. */
+const uuidQuery = (v?: string) => (v && uuid.safeParse(v).success ? v : undefined);
+const fechaQuery = (v?: string) => (v && fecha.safeParse(v).success ? v : undefined);
+
+/** Inventarios: ajustes, transferencias, conteo físico, existencias por lote y kardex. */
 export async function rutasInventario(app: FastifyInstance, servicios: Servicios): Promise<void> {
+  const conPermiso = crearConPermiso(servicios);
+
   app.post('/api/inventario/ajustes', async (request, reply) => {
-    const r = z.object({
-      unidadNegocioId: z.string().uuid(),
-      articuloId: z.string().uuid(),
-      cantidad: z.union([z.string(), z.number()]),
-      costoUnitario: z.union([z.string(), z.number()]).nullish(),
-      motivo: z.string().max(500).nullish(),
-    }).safeParse(request.body ?? {});
-    if (!r.success) throw new ErrorNegocio(400, 'Revise los datos ingresados.', erroresPorCampo(r.error));
-    const d = r.data;
-    const sesion = await obtenerSesion(servicios.db, servicios.verificar, request);
-    const salida = await enSesion(servicios.db, sesion, async (trx) => {
-      await exigirPermiso(trx, sesion, 'inventario', 'CREAR');
-      const companiaId = companiaDe(sesion);
-      const cantidad = new Decimal(d.cantidad);
-      if (cantidad.isZero()) throw new ErrorNegocio(400, 'La cantidad no puede ser cero.');
-      if (cantidad.greaterThan(0) && (d.costoUnitario == null || d.costoUnitario === '')) {
-        throw new ErrorNegocio(400, 'Indique el costo unitario de la entrada.', { costoUnitario: 'Este campo es obligatorio' });
-      }
-      const tipo = await tipoDocumento(trx, 'INV', 'AJ');
-      const numero = await numerar(trx, companiaId, tipo.id);
-      const fecha = hoy();
-      const doc = await sql<{ id: string }>`
-        insert into erp.inv_documentos (compania_id, tipo_documento_id, numero, fecha, unidad_negocio_id, observacion)
-        values (${companiaId}, ${tipo.id}, ${numero}, ${fecha}, ${d.unidadNegocioId}, ${d.motivo ?? null}) returning id`.execute(trx);
-      const art = await sql<{ unidad_primaria: string }>`select unidad_primaria from erp.mae_articulos where id = ${d.articuloId}`.execute(trx);
-      if (!art.rows[0]) throw new ErrorNegocio(400, 'Artículo: el registro no existe.');
-      const linea = await sql<{ id: string }>`
-        insert into erp.inv_documentos_lineas (documento_id, linea, articulo_id, cantidad, unidad, costo_unitario)
-        values (${doc.rows[0]!.id}, 1, ${d.articuloId}, ${cantidad.toFixed(4)}, ${art.rows[0].unidad_primaria}, ${d.costoUnitario ?? null})
-        returning id`.execute(trx);
-      const mov = await moverInventario(trx, {
-        companiaId, fecha, articuloId: d.articuloId, unidadNegocioId: d.unidadNegocioId, cantidad,
-        costoUnitario: d.costoUnitario ?? undefined, tipoDocumentoId: tipo.id, numeroDocumento: numero,
-        origenModulo: 'INV', origenLineaId: linea.rows[0]!.id,
-      });
-      if (!mov.inventariable) throw new ErrorNegocio(400, 'Solo los artículos inventariables tienen existencias.');
-      const entrada = cantidad.greaterThan(0);
-      const asiento = await contabilizar(trx, {
-        companiaId, fecha, glosa: `Ajuste de inventario ${numero}`, origenModulo: 'INV', origenId: doc.rows[0]!.id,
-        lineas: [
-          { concepto: 'INVENTARIO', claseContableId: mov.claseContableId, unidadNegocioId: d.unidadNegocioId, ...(entrada ? { debito: mov.costoTotal } : { credito: mov.costoTotal }) },
-          { concepto: 'AJUSTE_INV', claseContableId: mov.claseContableId, unidadNegocioId: d.unidadNegocioId, ...(entrada ? { credito: mov.costoTotal } : { debito: mov.costoTotal }) },
-        ],
-      });
-      if (mov.kardexId) await ligarAsientoKardex(trx, mov.kardexId, asiento);
-      await sql`update erp.inv_documentos_lineas set kardex_id = ${mov.kardexId} where id = ${linea.rows[0]!.id}`.execute(trx);
-      return { documentoId: doc.rows[0]!.id, numero };
-    });
+    const d = leer(z.object({
+      unidadNegocioId: uuid, articuloId: uuid, cantidad: monto, costoUnitario: monto.nullish().or(z.literal('')), motivo: z.string().max(500).nullish(),
+      lote: z.string().max(30).nullish(), vencimiento: fecha.nullish().or(z.literal('')),
+    }), request.body);
+    const r = await conPermiso(request, 'inventario', 'CREAR', (trx, cia) => registrarAjuste(trx, cia, { ...d, vencimiento: d.vencimiento || null }));
     reply.code(201);
-    return salida;
+    return r;
   });
 
-  app.get<{ Querystring: { buscar?: string } }>('/api/inventario/saldos', async (request) => {
-    const sesion = await obtenerSesion(servicios.db, servicios.verificar, request);
-    return enSesion(servicios.db, sesion, async (trx) => {
-      await exigirPermiso(trx, sesion, 'inventario', 'VER');
-      const patron = request.query.buscar ? `%${request.query.buscar}%` : null;
-      const r = await sql`
-        select a.codigo, a.descripcion, a.unidad_primaria as unidad, u.codigo as bodega, s.en_mano, s.comprometido,
-               coalesce(c.costo_unitario, 0) as costo_unitario, round(s.en_mano * coalesce(c.costo_unitario, 0), 2) as valor
-        from erp.inv_saldos s join erp.mae_articulos a on a.id = s.articulo_id
-        join erp.mae_unidades_negocio u on u.id = s.unidad_negocio_id
-        left join erp.inv_costos c on c.articulo_id = s.articulo_id and c.unidad_negocio_id = s.unidad_negocio_id and c.metodo = 'PROMEDIO'
-        where (${patron}::text is null or a.codigo ilike ${patron} or a.descripcion ilike ${patron})
-        order by a.codigo, u.codigo limit 500`.execute(trx);
-      return r.rows;
+  app.post('/api/inventario/transferencias', async (request, reply) => {
+    const d = leer(z.object({
+      origenId: uuid, destinoId: uuid, fecha: fecha.nullish(), observacion: z.string().max(500).nullish(),
+      lineas: z.array(z.object({ articuloId: uuid, cantidad: monto, loteId: opcUuid })).min(1, 'Agregue al menos una línea'),
+    }), request.body);
+    const r = await conPermiso(request, 'inventario', 'CREAR', (trx, cia) => transferir(trx, cia, d));
+    reply.code(201);
+    return r;
+  });
+
+  app.post('/api/inventario/conteos', async (request, reply) => {
+    const d = leer(z.object({ unidadNegocioId: uuid, categoria: z.string().max(20).nullish(), observacion: z.string().max(500).nullish() }), request.body);
+    const r = await conPermiso(request, 'inventario', 'CREAR', (trx, cia) => crearConteo(trx, cia, d));
+    reply.code(201);
+    return r;
+  });
+
+  app.post<{ Params: { id: string } }>('/api/inventario/conteos/:id/lineas', async (request) => {
+    const d = leer(z.object({ articuloId: uuid, lote: z.string().max(30).nullish(), vencimiento: fecha.nullish() }), request.body);
+    return conPermiso(request, 'inventario', 'MODIFICAR', async (trx) => {
+      await agregarLineaConteo(trx, idValido(request.params.id), d);
+      return { ok: true };
     });
   });
+
+  app.put<{ Params: { id: string } }>('/api/inventario/conteos/:id', async (request) => {
+    const d = leer(z.object({ cantidades: z.array(z.object({ lineaId: uuid, cantidad: monto.nullish().or(z.literal('')) })) }), request.body);
+    return conPermiso(request, 'inventario', 'MODIFICAR', async (trx) => {
+      await registrarConteo(trx, idValido(request.params.id), d.cantidades.map((c) => ({ lineaId: c.lineaId, cantidad: c.cantidad === '' ? null : c.cantidad ?? null })));
+      return { ok: true };
+    });
+  });
+
+  app.post<{ Params: { id: string } }>('/api/inventario/conteos/:id/contabilizar', async (request) =>
+    conPermiso(request, 'inventario', 'CREAR', (trx) => contabilizarConteo(trx, idValido(request.params.id))),
+  );
+
+  app.get<{ Querystring: { tipo?: string } }>('/api/inventario/documentos', async (request) =>
+    conPermiso(request, 'inventario', 'VER', (trx, cia) => listarDocumentos(trx, cia, request.query.tipo)),
+  );
+
+  app.get<{ Params: { id: string } }>('/api/inventario/documentos/:id', async (request) =>
+    conPermiso(request, 'inventario', 'VER', (trx) => detalleDocumento(trx, idValido(request.params.id))),
+  );
+
+  app.get<{ Querystring: { buscar?: string; unidadNegocioId?: string } }>('/api/inventario/saldos', async (request) =>
+    conPermiso(request, 'inventario', 'VER', (trx) => existencias(trx, { buscar: request.query.buscar, unidadNegocioId: uuidQuery(request.query.unidadNegocioId) })),
+  );
+
+  app.get<{ Querystring: { articuloId?: string; unidadNegocioId?: string } }>('/api/inventario/lotes', async (request) =>
+    conPermiso(request, 'inventario', 'VER', (trx) => lotesDisponibles(trx, idValido(request.query.articuloId ?? ''), idValido(request.query.unidadNegocioId ?? ''))),
+  );
+
+  app.get<{ Querystring: { articuloId?: string; unidadNegocioId?: string; desde?: string; hasta?: string } }>('/api/inventario/kardex', async (request) =>
+    conPermiso(request, 'inventario', 'VER', (trx) => consultaKardex(trx, {
+      articuloId: idValido(request.query.articuloId ?? ''), unidadNegocioId: uuidQuery(request.query.unidadNegocioId),
+      desde: fechaQuery(request.query.desde) ?? '2000-01-01', hasta: fechaQuery(request.query.hasta) ?? hoy(),
+    })),
+  );
 }

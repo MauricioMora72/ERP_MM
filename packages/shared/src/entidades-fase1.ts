@@ -255,7 +255,7 @@ export const ENTIDADES_FASE1: Entidad[] = [
 
   // ------------------------------------------------------------ Inventario
   base({
-    nombre: 'kardex', tabla: 'inv_kardex', titulo: 'Kardex', tituloSingular: 'Movimiento', modulo: 'Inventario', soloLectura: true, ordenDescendente: true,
+    nombre: 'kardex', tabla: 'inv_kardex', titulo: 'Kardex', tituloSingular: 'Movimiento', modulo: 'Inventario', soloLectura: true, ordenDescendente: true, oculta: true,
     campos: [
       fec('fecha', 'Fecha'), ref('articulo_id', 'Artículo', 'articulos'), ref('unidad_negocio_id', 'Bodega', 'unidades-negocio'),
       ref('tipo_documento_id', 'Documento', 'tipos-documento'), ent('numero_documento', 'Número'), t('origen_modulo', 'Módulo'),
@@ -293,7 +293,7 @@ export const ENTIDADES_FASE1: Entidad[] = [
     listado: ['tipo_transaccion_id', 'clase_contable_id', 'unidad_negocio_id', 'cuenta_id'], busqueda: [], etiqueta: ['tipo_transaccion_id'], orden: 'creado_en',
   }),
   base({
-    nombre: 'periodos', tabla: 'con_periodos', titulo: 'Períodos contables', tituloSingular: 'Período', modulo: 'Contabilidad',
+    nombre: 'periodos', tabla: 'con_periodos', titulo: 'Períodos contables', tituloSingular: 'Período', modulo: 'Contabilidad', oculta: true,
     campos: [
       ref('compania_id', 'Compañía', 'companias', { requerido: true }), ent('anio', 'Año', { requerido: true }), ent('periodo', 'Período', { requerido: true }),
       fec('fecha_desde', 'Desde', { requerido: true }), fec('fecha_hasta', 'Hasta', { requerido: true }),
@@ -304,6 +304,7 @@ export const ENTIDADES_FASE1: Entidad[] = [
   }),
   base({
     nombre: 'asientos', tabla: 'con_asientos', titulo: 'Asientos contables', tituloSingular: 'Asiento', modulo: 'Contabilidad', soloLectura: true, ordenDescendente: true,
+    oculta: true, rutaDetalle: '/contabilidad/asientos',
     campos: [ent('numero', 'Número'), fec('fecha', 'Fecha'), t('glosa', 'Glosa'), t('origen_modulo', 'Módulo de origen'), t('estado', 'Estado')],
     listado: ['numero', 'fecha', 'glosa', 'origen_modulo', 'estado'], busqueda: ['glosa'], etiqueta: ['numero'], orden: 'creado_en',
     hijos: [{ entidad: 'asientos-lineas', campo: 'asiento_id', titulo: 'Líneas' }],
@@ -320,7 +321,7 @@ export const ENTIDADES_FASE1: Entidad[] = [
 
   // ------------------------------------------------------------ Cobros y pagos
   base({
-    nombre: 'cuentas-bancarias', tabla: 'con_cuentas_bancarias', titulo: 'Cuentas bancarias', tituloSingular: 'Cuenta bancaria', modulo: 'Cobros y pagos',
+    nombre: 'cuentas-bancarias', tabla: 'con_cuentas_bancarias', titulo: 'Cuentas bancarias', tituloSingular: 'Cuenta bancaria', modulo: 'Contabilidad',
     campos: [
       ref('compania_id', 'Compañía', 'companias', { requerido: true, soloAlta: true }), cod(), ref('banco_id', 'Banco', 'direcciones', { requerido: true }),
       t('numero', 'Número de cuenta', { requerido: true, max: 30 }),

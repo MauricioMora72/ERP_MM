@@ -245,6 +245,7 @@ export async function despachar(trx: Trx, ordenId: string, d: { fecha?: string |
     if (cantidad.greaterThan(pendiente)) throw new ErrorNegocio(400, `La línea ${l.linea} tiene pendiente ${pendiente} y se intenta despachar ${cantidad}.`);
     let costoTotal = D(0);
     let kardexId: string | null = null;
+    let kardexIds: string[] = [];
     if (l.tipo_existencia === 'INVENTARIABLE') {
       await comprometer(trx, l.articulo_id, l.unidad_negocio_id, cantidad.negated());
       const mov = await moverInventario(trx, {
@@ -252,6 +253,7 @@ export async function despachar(trx: Trx, ordenId: string, d: { fecha?: string |
         tipoDocumentoId: tipo.id, numeroDocumento: numero, origenModulo: 'VEN', origenLineaId: l.id,
       });
       kardexId = mov.kardexId;
+      kardexIds = mov.kardexIds;
       costoTotal = mov.costoTotal;
       const asiento = await contabilizar(trx, {
         companiaId: cab.compania_id, fecha, glosa: `Despacho ${numero}, orden de venta ${cab.numero}, línea ${l.linea}`, origenModulo: 'VEN', origenId: l.id,
@@ -260,7 +262,7 @@ export async function despachar(trx: Trx, ordenId: string, d: { fecha?: string |
           { concepto: 'INVENTARIO', claseContableId: mov.claseContableId, unidadNegocioId: l.unidad_negocio_id, credito: costoTotal },
         ],
       });
-      if (kardexId) await ligarAsientoKardex(trx, kardexId, asiento);
+      await ligarAsientoKardex(trx, kardexIds, asiento);
     }
     const previa = D(l.cantidad_despachada);
     const nueva = previa.plus(cantidad);
@@ -373,7 +375,7 @@ export async function emitirNotaCredito(
     if (d.devolverInventario && c.fl.tipo_existencia === 'INVENTARIABLE' && c.fl.bodega) {
       const mov = await moverInventario(trx, {
         companiaId, fecha, articuloId: c.fl.articulo_id, unidadNegocioId: c.fl.bodega, cantidad: c.cantidad,
-        costoUnitario: D(c.fl.costo_despacho), tipoDocumentoId: tipo.id, numeroDocumento: String(secuencial), origenModulo: 'VEN', origenLineaId: c.fl.id,
+        costoUnitario: D(c.fl.costo_despacho), tipoDocumentoId: tipo.id, numeroDocumento: String(secuencial), origenModulo: 'VEN', origenLineaId: c.fl.orden_linea_id ?? c.fl.id,
       });
       const asientoInv = await contabilizar(trx, {
         companiaId, fecha, glosa: `Devolución a bodega, nota de crédito ${numero}`, origenModulo: 'VEN', origenId: ncId,
@@ -382,7 +384,7 @@ export async function emitirNotaCredito(
           { concepto: 'COSTO_VENTA', claseContableId: c.fl.clase_contable_id, unidadNegocioId: c.fl.bodega, credito: mov.costoTotal },
         ],
       });
-      if (mov.kardexId) await ligarAsientoKardex(trx, mov.kardexId, asientoInv);
+      if (mov.kardexId) await ligarAsientoKardex(trx, mov.kardexIds, asientoInv);
     }
   }
   const asiento = await contabilizar(trx, {

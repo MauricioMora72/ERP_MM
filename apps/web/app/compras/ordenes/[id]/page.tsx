@@ -18,6 +18,7 @@ function OrdenCompra() {
   const { puede } = useSesion();
   const [d, setD] = useState<Json | null>(null);
   const [recibir, setRecibir] = useState<Record<string, string>>({});
+  const [lotes, setLotes] = useState<Record<string, { lote: string; vencimiento: string }>>({});
   const [proveedor, setProveedor] = useState<string | null>(null);
   const [mensaje, setMensaje] = useState<{ tipo: string; texto: string } | null>(null);
 
@@ -114,19 +115,28 @@ function OrdenCompra() {
           <h2>Recibir</h2>
           <p className="tenue">Los inventariables entran al kardex al costo de la orden. Los servicios se pueden recibir aquí o facturar directamente.</p>
           <table className="lista edicion compacta">
-            <thead><tr><th>Línea</th><th>Descripción</th><th className="numero">Pendiente</th><th className="numero">Recibir ahora</th></tr></thead>
+            <thead><tr><th>Línea</th><th>Descripción</th><th className="numero">Pendiente</th><th className="numero">Recibir ahora</th>
+              {porRecibir.some((l: Json) => l.controla_lote) && <><th>Lote</th><th>Vencimiento</th></>}</tr></thead>
             <tbody>
               {porRecibir.map((l: Json) => (
                 <tr key={l.id}>
                   <td>{l.linea}</td><td>{l.descripcion}</td><td className="numero">{cantidad(Number(l.cantidad) - Number(l.cantidad_recibida))}</td>
                   <td><input type="text" inputMode="decimal" className="numero corto" value={recibir[l.id] ?? ''} onChange={(e) => setRecibir({ ...recibir, [l.id]: e.target.value })} aria-label={`Recibir línea ${l.linea}`} /></td>
+                  {porRecibir.some((x: Json) => x.controla_lote) && (l.controla_lote ? (
+                    <>
+                      <td><input type="text" className="corto" value={lotes[l.id]?.lote ?? ''} onChange={(e) => setLotes({ ...lotes, [l.id]: { vencimiento: '', ...lotes[l.id], lote: e.target.value } })} aria-label={`Lote línea ${l.linea}`} /></td>
+                      <td><input type="date" value={lotes[l.id]?.vencimiento ?? ''} onChange={(e) => setLotes({ ...lotes, [l.id]: { lote: '', ...lotes[l.id], vencimiento: e.target.value } })} aria-label={`Vencimiento línea ${l.linea}`} /></td>
+                    </>
+                  ) : <><td></td><td></td></>)}
                 </tr>
               ))}
             </tbody>
           </table>
           <div className="acciones">
             <button onClick={() => accion(`/api/com/ordenes/${id}/recibir`, {
-              lineas: Object.entries(recibir).filter(([, v]) => Number(v) > 0).map(([lineaId, v]) => ({ lineaId, cantidad: v })),
+              lineas: Object.entries(recibir).filter(([, v]) => Number(v) > 0).map(([lineaId, v]) => ({
+                lineaId, cantidad: v, lote: lotes[lineaId]?.lote || null, vencimiento: lotes[lineaId]?.vencimiento || null,
+              })),
             }, 'Recepción registrada con su kardex y su asiento.')}>Registrar recepción</button>
           </div>
         </section>

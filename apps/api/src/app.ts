@@ -9,6 +9,7 @@ import { rutasServicios } from './rutas/servicios.js';
 import { rutasInventario } from './rutas/inventario.js';
 import { rutasCompras } from './rutas/compras.js';
 import { rutasVentas } from './rutas/ventas.js';
+import { rutasContabilidad } from './rutas/contabilidad.js';
 
 export interface Servicios {
   db: Db;
@@ -47,5 +48,6 @@ export async function construirApp(
   await rutasInventario(app, servicios);
   await rutasCompras(app, servicios);
   await rutasVentas(app, servicios);
+  await rutasContabilidad(app, servicios);
   return app;
 }

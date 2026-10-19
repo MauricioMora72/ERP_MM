@@ -63,6 +63,14 @@ async function resolverCuenta(
   return { cuentaId: regla.cuenta_id, centroCostoId: regla.centro_costo_id };
 }
 
+const MODULO_PERIODO: Record<string, { columna: 'estado_ventas' | 'estado_compras' | 'estado_inventario'; nombre: string }> = {
+  VEN: { columna: 'estado_ventas', nombre: 'ventas' },
+  CXC: { columna: 'estado_ventas', nombre: 'ventas' },
+  COM: { columna: 'estado_compras', nombre: 'compras' },
+  CXP: { columna: 'estado_compras', nombre: 'compras' },
+  INV: { columna: 'estado_inventario', nombre: 'inventario' },
+};
+
 /** Genera y contabiliza un asiento cuadrado. Devuelve su id, o null si todas las líneas son cero. */
 export async function contabilizar(trx: Trx, asiento: Asiento): Promise<string | null> {
   // Cada línea queda con su neto en débito o en crédito; un débito negativo es un crédito.
@@ -79,13 +87,17 @@ export async function contabilizar(trx: Trx, asiento: Asiento): Promise<string |
     throw new ErrorNegocio(500, `El asiento no cuadra: débitos ${totalD} y créditos ${totalC}.`);
   }
 
-  const periodo = await sql<{ id: string; anio: number }>`
-    select id, anio from erp.con_periodos
+  const periodo = await sql<{ id: string; anio: number; estado_contabilidad: string; estado_ventas: string; estado_compras: string; estado_inventario: string }>`
+    select id, anio, estado_contabilidad, estado_ventas, estado_compras, estado_inventario from erp.con_periodos
     where compania_id = ${asiento.companiaId} and ${asiento.fecha}::date between fecha_desde and fecha_hasta
-      and estado_contabilidad = 'ABIERTO'
     order by periodo limit 1`.execute(trx);
   const p = periodo.rows[0];
-  if (!p) throw new ErrorNegocio(400, `No hay un período contable abierto para la fecha ${asiento.fecha}.`);
+  if (!p || p.estado_contabilidad !== 'ABIERTO') throw new ErrorNegocio(400, `No hay un período contable abierto para la fecha ${asiento.fecha}.`);
+  // Cada módulo puede cerrar su período antes que contabilidad.
+  const modulo = MODULO_PERIODO[asiento.origenModulo];
+  if (modulo && p[modulo.columna] !== 'ABIERTO') {
+    throw new ErrorNegocio(400, `El período de ${modulo.nombre} está cerrado para la fecha ${asiento.fecha}.`);
+  }
 
   const tipo = await tipoDocumento(trx, 'CON', 'AS');
   const numero = await numerar(trx, asiento.companiaId, tipo.id, p.anio);

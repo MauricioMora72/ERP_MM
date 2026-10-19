@@ -1,6 +1,14 @@
 # ERP propio
 
-ERP web multiempresa para empresas de servicios en Ecuador. Fase actual: 1, gestión de servicios con compras al pago y ventas al cobro.
+ERP web multiempresa para empresas de servicios en Ecuador. Fase actual: 1, gestión de servicios con compras al pago, ventas al cobro, contabilidad general e inventarios completos. La facturación electrónica del SRI queda para más adelante.
+
+## Qué incluyen contabilidad general e inventarios (fase 1)
+
+Especificaciones en docs/especificaciones/con-contabilidad-general.md y docs/especificaciones/inv-inventarios-complemento.md.
+
+- Contabilidad: asientos manuales con validación de cuadre, centro de costo y tercero; reversa en lugar de edición; períodos abiertos o cerrados por módulo (ventas, compras, inventario, contabilidad); cierre del ejercicio contra resultado del ejercicio; balance de comprobación, balance general, estado de resultados y mayor por cuenta, todos descargables en CSV.
+- Bancos: carga del extracto pegando sus líneas, conciliación manual y automática por valor y fecha, registro de comisiones y débitos bancarios desde la misma pantalla, y saldo conciliado.
+- Inventarios: transferencias entre bodegas al costo promedio, conteo físico con foto de existencias y ajuste solo de diferencias, lotes con vencimiento y salida automática por el que vence primero, y consulta de kardex con saldo acumulado.
 
 ## Qué incluyen compras al pago y ventas al cobro (fase 1)
 

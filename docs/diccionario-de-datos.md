@@ -1419,3 +1419,14 @@ Tablas nuevas: srv_perfiles, srv_recursos_perfiles, srv_tarifas, srv_garantias_d
 | ec_retenciones | autorizacion | varchar(49) | Clave de acceso o autorización |
 
 Ver docs/especificaciones/com-compras-al-pago.md y docs/especificaciones/ven-ventas-al-cobro.md.
+
+### Migración 0006: contabilidad general e inventarios
+
+| Tabla | Columna | Tipo | Descripción |
+| --- | --- | --- | --- |
+| con_asientos | estado | varchar(20) | CONTABILIZADO o REVERSADO |
+| inv_documentos | estado | varchar(20) | ABIERTO mientras se cuenta; CONTABILIZADO cuando ya movió el kardex |
+| inv_documentos_lineas | cantidad_sistema | numeric(18,4) | Existencia al crear el conteo físico |
+| inv_documentos_lineas | cantidad_contada | numeric(18,4) | Cantidad contada en el conteo físico |
+
+Índices nuevos para reportes y kardex: con_asientos por compañía y fecha, inv_kardex por artículo, bodega y fecha, e inv_kardex por línea de origen. Ver docs/especificaciones/con-contabilidad-general.md y docs/especificaciones/inv-inventarios-complemento.md.

@@ -12,7 +12,7 @@ import {
 } from '../comercial/compras.js';
 import { documentosAbiertosCxp, registrarPagos } from '../comercial/cxp.js';
 import { hoy } from '../nucleo/documentos.js';
-import { asegurarConfiguracionComercial } from '../semillas-comercial.js';
+import { asegurarConfiguracion } from '../semillas-comercial.js';
 import { companiaDe } from '../servicios/comun.js';
 
 export const uuid = z.string().uuid();
@@ -43,7 +43,7 @@ export function crearConPermiso(servicios: Servicios) {
     return enSesion(servicios.db, sesion, async (trx) => {
       await exigirPermiso(trx, sesion, recurso, accion);
       const companiaId = companiaDe(sesion);
-      await asegurarConfiguracionComercial(trx, companiaId);
+      await asegurarConfiguracion(trx, companiaId);
       return trabajo(trx, companiaId, sesion);
     });
   };
@@ -97,7 +97,7 @@ export async function rutasCompras(app: FastifyInstance, servicios: Servicios): 
   });
 
   app.post<{ Params: { id: string } }>('/api/com/ordenes/:id/recibir', async (request, reply) => {
-    const d = leer(z.object({ fecha: fecha.nullish(), lineas: z.array(z.object({ lineaId: uuid, cantidad: monto })).min(1) }), request.body);
+    const d = leer(z.object({ fecha: fecha.nullish(), lineas: z.array(z.object({ lineaId: uuid, cantidad: monto, lote: z.string().max(30).nullish(), vencimiento: fecha.nullish() })).min(1) }), request.body);
     const r = await conPermiso(request, 'compras', 'CREAR', (trx) => recibir(trx, idValido(request.params.id), d));
     reply.code(201);
     return r;
