@@ -1,6 +1,6 @@
 # Especificación funcional: Cuenta segmentada, contabilidad flexible y bancos de datos
 
-Estado: propuesta para aprobación de Mauricio Mora. Versión 0.1, 19 de octubre de 2026.
+Estado: propuesta para aprobación de Mauricio Mora. Versión 0.2, 19 de octubre de 2026, con sus respuestas sobre combinaciones, formato del objeto y categorías.
 
 ## 1. Objetivo
 
@@ -31,13 +31,24 @@ Unidad de negocio . Objeto . Auxiliar . Segmento 1 . … . Segmento 10
 | Segmento | Qué es | De dónde sale el valor |
 | --- | --- | --- |
 | Unidad de negocio | Sucursal, bodega, planta, centro de costo o proyecto (mae_unidades_negocio) | Obligatoria en toda línea |
-| Objeto | Cuenta del plan de cuentas (con_cuentas), con su jerarquía y numeración local para los estados de la Superintendencia | Obligatorio; debe aceptar movimiento |
+| Objeto | Cuenta del plan de cuentas (con_cuentas), con su jerarquía; su formato se configura por compañía (ver 3.2) | Obligatorio; debe aceptar movimiento |
 | Auxiliar | Detalle libre del objeto, hasta 8 caracteres (por ejemplo, el banco dentro de Bancos o la categoría del artículo dentro de Inventario) | Opcional, salvo que el objeto lo exija |
 | Segmentos 1 a 10 | Dimensiones que define cada compañía: línea de producto, vendedor, canal, región, proyecto, actividad, etc. | Opcionales; cada objeto dice cuáles exige |
 
 El tercero (cliente, proveedor, empleado) sigue siendo una dimensión aparte de la línea, como auxiliar de terceros, y no forma parte del código de la cuenta.
 
-### 3.2 Definición de segmentos por compañía
+### 3.2 Formato del objeto
+
+Cada compañía escoge cómo numera el objeto:
+
+| Formato | Comportamiento |
+| --- | --- |
+| Plan local | El objeto es el código del plan de la Superintendencia (1.1.01.001) y los estados se arman directamente con él |
+| Objeto corto | El objeto es un código corto propio (por ejemplo 1110) y cada objeto lleva su cuenta del plan local como dato de reporte; los estados para la Superintendencia se arman con ese dato |
+
+La compañía define además la máscara del objeto (longitud y separadores) y el formato se puede cambiar mientras no haya asientos.
+
+### 3.3 Definición de segmentos por compañía
 
 Cada compañía define en la pantalla Segmentos contables cuáles de los diez usa. Por cada uno indica:
 
@@ -48,18 +59,15 @@ Cada compañía define en la pantalla Segmentos contables cuáles de los diez us
 
 En la ficha del objeto (plan de cuentas) se marca qué segmentos exige y si exige auxiliar, igual que hoy se marca si exige centro de costo o tercero.
 
-### 3.3 Combinaciones de cuenta
+### 3.4 Combinaciones de cuenta
 
-La compañía elige entre dos modos:
-
-| Modo | Comportamiento |
-| --- | --- |
-| Estricto | Solo se contabiliza en combinaciones unidad de negocio . objeto . auxiliar creadas antes, como en el ERP de referencia. Hay una herramienta para copiar los objetos de una unidad modelo a otras unidades. |
-| Abierto | Cualquier unidad válida con cualquier objeto de movimiento y un auxiliar válido forman una cuenta. La combinación se registra sola la primera vez que se usa. |
+1. Solo se contabiliza en combinaciones unidad de negocio . objeto . auxiliar creadas antes, como en el ERP de referencia. Una regla contable que lleve a una combinación inexistente detiene el documento y dice qué combinación falta.
+2. Cada combinación tiene descripción, estado activo o inactivo y nivel de detalle, y puede marcarse como no contabilizable.
+3. Hay una herramienta para copiar los objetos de una unidad modelo a otras unidades, con o sin sus auxiliares.
 
 Los segmentos 1 a 10 nunca exigen combinación previa; se validan solos contra su banco de datos o su maestro.
 
-### 3.4 Saldos y reportes
+### 3.5 Saldos y reportes
 
 1. Los saldos se guardan por período y por combinación completa: unidad, objeto, auxiliar, segmentos 1 a 10 y tercero cuando el objeto lo exige.
 2. Balance de comprobación, mayor, balance general y estado de resultados se pueden sacar a cualquier nivel: por objeto (como hoy), por unidad de negocio y su jerarquía, por auxiliar o por cualquier segmento, con filtros por rango de valores.
@@ -91,7 +99,12 @@ Si un segmento obligatorio queda vacío después de aplicar las reglas, el docum
 
 ### 4.3 Categorías en los maestros
 
-Para que la contabilidad flexible tenga de dónde tomar datos, se agregan diez categorías configurables a artículos, direcciones (clientes y proveedores) y unidades de negocio. Cada categoría se liga a un banco de datos (por ejemplo, INV/01 a INV/10 para artículos) y se usa también en reportes y búsquedas.
+Para que la contabilidad flexible tenga de dónde tomar datos, artículos, direcciones (clientes y proveedores) y unidades de negocio llevan categorías. No hay un número fijo de columnas: las categorías son registros hacia abajo.
+
+1. Cada compañía define qué categorías usa cada maestro, cuantas necesite. Cada una se liga a un banco de datos (por ejemplo, INV/20 Línea de producto, INV/21 Marca).
+2. Un banco de datos puede depender de otro para formar subcategorías: en INV/22 Sublínea cada valor tiene su valor padre en INV/20 Línea. Al escoger la línea, la sublínea solo ofrece sus hijos.
+3. En la ficha del maestro, una pestaña Categorías muestra una fila por categoría definida, con su valor. Se puede marcar una categoría como obligatoria.
+4. Las reglas flexibles, los reportes y las búsquedas se refieren a la categoría por el código de su banco de datos.
 
 ## 5. Bancos de datos
 
@@ -138,9 +151,7 @@ Cada valor tiene código, descripción, segunda descripción, código especial (
 | MAE/02 | Tipos de búsqueda de dirección (cliente, proveedor, empleado, banco) | No |
 | MAE/03 | Tipos de unidad de negocio | No |
 | MAE/04 | Unidades de medida | No |
-| MAE/11 a MAE/20 | Categorías 1 a 10 de direcciones | No |
-| MAE/21 a MAE/30 | Categorías 1 a 10 de unidades de negocio | No |
-| INV/01 a INV/10 | Categorías 1 a 10 de artículos | No |
+| A definir por el cliente | Categorías y subcategorías de direcciones, unidades de negocio y artículos | No |
 | INV/11 | Tipos de existencia | Sí |
 | INV/12 | Motivos de ajuste | No |
 | COM/01 | Motivos de cancelación de compra | No |
@@ -154,14 +165,15 @@ La lista final se completa al recorrer todas las pantallas y queda en el diccion
 ## 6. Datos
 
 1. con_segmentos (nueva): definición de los diez segmentos por compañía.
-2. con_combinaciones (nueva): combinaciones unidad . objeto . auxiliar para el modo estricto.
+2. con_combinaciones (nueva): combinaciones unidad . objeto . auxiliar, que deben existir antes de contabilizar.
 3. con_reglas_flexibles (nueva): origen de la unidad, el auxiliar y cada segmento.
 4. con_reglas_contables: agrega tipo de documento, auxiliar fijo y unidad fija.
-5. con_cuentas: agrega exige_auxiliar y los segmentos que exige.
+5. con_cuentas: agrega exige_auxiliar, los segmentos que exige y la cuenta del plan local como dato de reporte. mae_companias agrega el formato y la máscara del objeto.
 6. con_asientos_lineas y con_saldos: agregan auxiliar y segmento_01 a segmento_10; el centro de costo actual pasa a ser el segmento unidad de negocio.
-7. cat_catalogos: agrega código de banco de datos, tipo de código y valores fijos.
-8. mae_articulos, mae_direcciones y mae_unidades_negocio: agregan categoria_01 a categoria_10.
-9. sis_tipos_documento: el código pasa a validarse contra GEN/00 y deja de repetirse entre módulos.
+7. cat_catalogos: agrega código de banco de datos, tipo de código, valores fijos y banco de datos padre. cat_valores agrega valor padre para las subcategorías.
+8. mae_categorias_definidas (nueva): qué bancos de datos son categorías de cada maestro, por compañía, con su orden y si son obligatorias.
+9. mae_categorias (nueva): una fila por registro de maestro y categoría, con su valor.
+10. sis_tipos_documento: el código pasa a validarse contra GEN/00 y deja de repetirse entre módulos.
 
 Todo va en una migración nueva; no se edita ninguna aplicada.
 
@@ -173,9 +185,9 @@ con-configurar para segmentos, combinaciones, reglas contables y reglas flexible
 
 Moneda extranjera por segmento, presupuestos por segmento, distribuciones y prorrateos automáticos entre unidades, y consolidación entre compañías.
 
-## 9. Decisiones que necesito de usted
+## 9. Decisiones
 
-1. Modo de combinaciones por defecto: estricto (como el ERP de referencia) o abierto.
-2. Si el objeto sigue usando la numeración del plan local (1.1.01.001), que es la que se reporta a la Superintendencia, o si prefiere un objeto corto numérico con la cuenta local como dato de reporte.
-3. Si diez categorías por maestro le bastan o quiere más.
-4. Si acepta RB para el recibo de cobro y CA para el cierre.
+1. Combinaciones: se crean antes de contabilizar (respuesta de Mauricio Mora).
+2. Formato del objeto: configurable por compañía entre plan local y objeto corto (respuesta de Mauricio Mora).
+3. Categorías: registros hacia abajo, sin número fijo, con subcategorías (respuesta de Mauricio Mora).
+4. Pendiente: códigos de tipo de documento que chocan al volverse únicos (ver 5.5).
